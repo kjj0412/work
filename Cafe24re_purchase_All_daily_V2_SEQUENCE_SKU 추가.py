@@ -416,6 +416,8 @@ if __name__ == "__main__":
     # except:
     #     pass
 
+    #깃허브 테스트
+    print('github')
     print('end time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     print('\n')
 
