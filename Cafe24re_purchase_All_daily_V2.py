@@ -8,7 +8,7 @@ import Data_handler
 
 '''
 Interval_Days_SKU_14도 맞게 들어가나 확인해야함
-정합성체크 완료되면 핑거수트 제작
+정합성체크 완료되면 핑거수트 제작//
 '''
 
 def Broad_RePurchase(df, Brand):
