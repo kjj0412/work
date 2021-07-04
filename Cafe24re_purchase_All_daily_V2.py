@@ -9,6 +9,7 @@ import Data_handler
 '''
 Interval_Days_SKU_14도 맞게 들어가나 확인해야함
 정합성체크 완료되면 핑거수트 제작
+
 '''
 
 def Broad_RePurchase(df, Brand):
@@ -309,8 +310,8 @@ def main(Brand, start, end, update_all):
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    # del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_current', del_query)
-    # insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_current')
+    del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_current', del_query)
+    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_current')
 
     # CrossSale RD 생성
     if Brand == '유리카':
