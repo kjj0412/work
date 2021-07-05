@@ -346,11 +346,11 @@ def get_past_purchase_by_SKU(DB_past_df, SKU_df):
     Past_df = DB_past_df[[1, 5, 0, 7]]
     Past_df.columns = ['Phone_Number', 'SKU', 'Date_', 'Last_Sequence_SKU']
 
-    # SKU별 마지막 구매회차 붙이기 - Sequence_SKU에 있던부분
+    # DB 내 SKU별 마지막 구매회차
     Sequence_SKU_DB = Past_df.drop(columns='Date_').groupby(['Phone_Number', 'SKU']).max('Last_Sequence_SKU').reset_index()
     SKU_df = pd.merge(left=SKU_df, right=Sequence_SKU_DB, on=['Phone_Number', 'SKU'], how='left')
 
-    # SKU별 마지막 구매일자 붙이기 - 14days에 있던부분
+    # DB 내 SKU별 마지막 구매일자
     Past_df = Past_df.drop(columns='Last_Sequence_SKU')
     Past_df = Past_df.sort_values(['Phone_Number', 'SKU', 'Date_'], ascending=(True, True, True))
     Past_df = Past_df.drop_duplicates(subset=['Phone_Number', 'SKU'], keep='last')
@@ -383,6 +383,7 @@ def Sequence_SKU(SKU_df):
 def Interval_days_SKU_14(SKU_df):
     """
     14일 로직에서 Interval_days_SKU 계산
+        *     '''전번, sku, 날짜 기준으로 중복제거한뒤 Interval_Days_SKU 계산하는 Interval_SKU_df 추가'''
     * 이번 기간 데이터에서 Phone_Number, SKU별 DateNum의 순서 매기기 (Sequence_SKU_2)
     * Phone_Number, SKU별 Interval_days_SKU 구하기
       - 과거 구매정보 있고 이번 기간 내 구매가 1회차이면 구매일 - DB의 마지막 구매일
@@ -390,7 +391,6 @@ def Interval_days_SKU_14(SKU_df):
       - 과거 구매정보 없는데 이번 기간 내 구매가 2회차 이상이면 구매일 - 이번기간 내 이전 구매일
     """
 
-    '''전번, sku, 날짜 기준으로 중복제거한뒤 Interval_Days_SKU 계산하는 Interval_SKU_df 추가'''
     Interval_SKU_df = SKU_df[['Phone_Number', 'SKU', 'Date_', 'Last_Date_SKU']]
     Interval_SKU_df = Interval_SKU_df.sort_values(['Phone_Number', 'SKU', 'Date_', 'Last_Date_SKU'], ascending=(True, True, True, True)).reset_index()
     Interval_SKU_df = Interval_SKU_df.drop_duplicates(subset=['Phone_Number', 'SKU', 'Date_'])
@@ -403,7 +403,7 @@ def Interval_days_SKU_14(SKU_df):
     Interval_SKU_df['Previous_OrderDate'] = Interval_SKU_df['Date_'].shift(1)
     Interval_SKU_df['Previous_SKU'] = Interval_SKU_df['SKU'].shift(1)
 
-    Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df.apply(lambda x : x['Date_'] - x['Previous_OrderDate'] if x['Sequence_SKU_2'] > 1 #3)
+    Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df.apply(lambda x : x['Date_'] - x['Previous_OrderDate'] if x['Sequence_SKU_2'] > 1
                                                else (x['Date_'] - x['Last_Date_SKU'] if ((x['Last_Date_SKU'] != 'NaT') and (x['Sequence_SKU_2'] == 1))
                                                      else ""), axis=1)
 
@@ -412,7 +412,6 @@ def Interval_days_SKU_14(SKU_df):
     Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df['Interval_Days_SKU'].apply(lambda x: x.replace('NaT', ''))
     Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df.apply(lambda x: "" if (x['SKU'] == "@") else x['Interval_Days_SKU'], axis=1)
 
-    '''계산된 Interval_Days_SKU를 SKU_df에 merge'''
     SKU_df =  SKU_df.drop(columns='Last_Date_SKU')
     Interval_SKU_df['Date_'] = Interval_SKU_df['Date_'].dt.strftime('%Y-%m-%d')
     SKU_df['Date_'] = SKU_df['Date_'].dt.strftime('%Y-%m-%d')
