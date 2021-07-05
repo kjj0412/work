@@ -257,19 +257,23 @@ def main(Brand, start, end, update_all):
     print(Brd, start_date, report_date)
 
     # 부분 업데이트 하는 경우
-    if update_all == False:
-        input_dir = "..\\..\\데일리앤코_Pentaho_리뉴얼_V2\\데일리앤코RD\\" + report_date + "\\input\\카페24\\수기_order\\" + input_folder
-        file_list = [f for f in glob.glob(input_dir + '/*.csv')]
+    # if update_all == False:
+    #     input_dir = "..\\..\\데일리앤코_Pentaho_리뉴얼_V2\\데일리앤코RD\\" + report_date + "\\input\\카페24\\수기_order\\" + input_folder
+    #     file_list = [f for f in glob.glob(input_dir + '/*.csv')]
+    #
+    #     # 인풋누락일경우 로그에 기록
+    #     if len(file_list)<1:
+    #         print(Brd + "RD not found :",len(file_list),"files in current folder.")
+    #     df = Data_handler.data_input(file_list)
+    #
+    # # 전체 업데이트 하는 경우
+    # elif update_all == True:
+    #     df = pd.read_csv(Brand+'_수기인풋전체.csv', encoding='UTF-8')
+    #     df = df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
 
-        # 인풋누락일경우 로그에 기록
-        if len(file_list)<1:
-            print(Brd + "RD not found :",len(file_list),"files in current folder.")
-        df = Data_handler.data_input(file_list)
-
-    # 전체 업데이트 하는 경우
-    elif update_all == True:
-        df = pd.read_csv(Brand+'_수기인풋전체.csv', encoding='UTF-8')
-        df = df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
+    # 임시추가
+    df = pd.read_csv(Brand+'_수기인풋전체.csv', encoding='UTF-8')
+    df = df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
 
     df = df[df['결제일시(입금확인일)'] >= start_date]
     df = df[df['결제일시(입금확인일)'] <= end_date]
@@ -309,8 +313,8 @@ def main(Brand, start, end, update_all):
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_edited', del_query)
-    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_edited')
+    del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_current', del_query)
+    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_current')
 
     # CrossSale RD 생성
     if Brand == '유리카':
@@ -355,7 +359,7 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    main('몽제', start=20, end=0, update_all=False)
+    main('몽제', start=9000, end=0, update_all=True)
 
     # for Brand in ['티타드']: #'유리카', '클럭', '몽제',
     #     try :
