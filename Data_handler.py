@@ -386,10 +386,9 @@ def Interval_days_SKU_14(SKU_df):
     * 이번 기간 데이터를 전화번호, sku, 날짜 기준으로 중복제거 (Interval_SKU_df)
     * 이번 기간 데이터에서 Phone_Number, SKU별 DateNum의 순서 매기기 (Sequence_SKU_2)
     * Phone_Number, SKU별 Interval_days_SKU 구하기
-      - 과거 구매정보 있고 이번 기간 내 구매가 1회차이면 구매일 - DB의 마지막 구매일
+      - 과거 구매정보 있고 이번 기간 내 구매가 1회차이면 구매일 - DB의 마지막 구매일 (DB의 마지막 구매일은 get_past_purchase_by_SKU 에서 매핑됨)
       - 과거 구매정보 없는데 이번 기간 내 구매가 1회차면 ""
-      - 과거 구매정보 없는데 이번 기간 내 구매가 2회차 이상이면 구매일 - 이번기간 내 이전 구매일
-    * 전화번호, SKU, 날짜 기준으로 SKU_df에 MERGE
+      - 과거 구매정보 없는데 이번 기간 내 구매가 2회차 이상이면 구매일 - 이번기간 내 이전 구매일 (이번기간 기준으로 별도 번호/SKU/날짜 매핑테이블 만들어서 merge)
     """
 
     Interval_SKU_df = SKU_df[['Phone_Number', 'SKU', 'Date_', 'Last_Date_SKU']]
@@ -425,7 +424,8 @@ def Interval_days_SKU_14(SKU_df):
 def Interval_days_SKU_all(SKU_df):
     '''
     전체 로직에서 Interval_days_SKU 계산
-    > 전체 업데이트시 14days 로직 적용하면 Date와 SKU가 같은 경우 한건은 Interval_Days_SKU가 0으로 들어감
+    * Minus_Date : 직전구매일. 전화번호, SKU가 동일한 케이스는 직전구매일을 동일하게 넣어줌
+    * Interval_Days_SKU : 구매일 - 직전구매일 (별도 번호/SKU/날짜 매핑테이블 만들어서 merge)
     '''
     SKU_df = SKU_df.sort_values(['Phone_Number', 'SKU', 'Date_'], ascending=(True, True, True)).reset_index()
     SKU_df['Date_'] = pd.to_datetime(SKU_df['Date_'])
