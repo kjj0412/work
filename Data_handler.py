@@ -383,12 +383,13 @@ def Sequence_SKU(SKU_df):
 def Interval_days_SKU_14(SKU_df):
     """
     14일 로직에서 Interval_days_SKU 계산
-        *     '''전번, sku, 날짜 기준으로 중복제거한뒤 Interval_Days_SKU 계산하는 Interval_SKU_df 추가'''
+    * 이번 기간 데이터를 전화번호, sku, 날짜 기준으로 중복제거 (Interval_SKU_df)
     * 이번 기간 데이터에서 Phone_Number, SKU별 DateNum의 순서 매기기 (Sequence_SKU_2)
     * Phone_Number, SKU별 Interval_days_SKU 구하기
       - 과거 구매정보 있고 이번 기간 내 구매가 1회차이면 구매일 - DB의 마지막 구매일
       - 과거 구매정보 없는데 이번 기간 내 구매가 1회차면 ""
       - 과거 구매정보 없는데 이번 기간 내 구매가 2회차 이상이면 구매일 - 이번기간 내 이전 구매일
+    * 전화번호, SKU, 날짜 기준으로 SKU_df에 MERGE
     """
 
     Interval_SKU_df = SKU_df[['Phone_Number', 'SKU', 'Date_', 'Last_Date_SKU']]
