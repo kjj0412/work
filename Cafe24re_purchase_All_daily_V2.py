@@ -309,8 +309,8 @@ def main(Brand, start, end, update_all):
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    # del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_current', del_query)
-    # insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_current')
+    del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_edited', del_query)
+    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_edited')
 
     # CrossSale RD 생성
     if Brand == '유리카':
