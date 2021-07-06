@@ -3,12 +3,9 @@ import numpy as np
 import pandas as pd
 from Cafe24product_fieldname import final_field, field_sorting
 import glob
-from Data_Upload_핑거수트 import datalist, datalist_past, insert_data, del_data
+from Data_Upload import datalist, datalist_past, insert_data, del_data
 import Data_handler
 
-'''
-0705 핑거수트 로직 추가중
-'''
 
 def Broad_RePurchase(df, Brand):
     """
@@ -178,14 +175,14 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    # del_data('salesrp', 'tb_salesrp_simple', del_query)
-    # insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
+    del_data('salesrp', 'tb_salesrp_simple', del_query)
+    insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    # del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-    # insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+    insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -376,12 +373,16 @@ if __name__ == "__main__":
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     # main('핑거수트', start=9000, end=0, update_all=True)
 
-    for Brand in ['핑거수트']: #'유리카', '클럭', '몽제', '티타드',
-        main(Brand, start=9000, end=0, update_all=True)
-        # try :
-        #     main(Brand, start=9000, end=0, update_all=True)
-        # except:
-        #     pass
+    for Brand in ['유리카', '클럭', '몽제', '티타드']:
+        try :
+            main(Brand, start=20, end=0, update_all=False)
+        except:
+            pass
+
+    try:
+        main('핑거수트', start=4, end=0, update_all=False)
+    except:
+        pass
 
     print('end time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     print('\n')
