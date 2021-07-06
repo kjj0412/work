@@ -177,15 +177,14 @@ def MappingCheck(df, Brd):
 
     NoMapping = df[cols]
     crit1 = (NoMapping['Item'].isnull()) | (NoMapping['Item'] == "@")
-
     crit3 = (NoMapping['SKU'].isnull()) | (NoMapping['SKU'] == "@")
-    crit4 = (NoMapping['Shape'].isnull()) | (NoMapping['Shape'] == "@")
-    crit5 = (NoMapping['Lineup'].isnull()) | (NoMapping['Lineup'] == "@")
-    crit6 = (NoMapping['Collection'].isnull()) | (NoMapping['Collection'] == "@")
 
     if (Brd == "yc") or (Brd == "tt"):
         NoMapping = NoMapping[crit1 | crit3]
     elif Brd == "fs":
+        crit4 = (NoMapping['Shape'].isnull()) | (NoMapping['Shape'] == "@")
+        crit5 = (NoMapping['Lineup'].isnull()) | (NoMapping['Lineup'] == "@")
+        crit6 = (NoMapping['Collection'].isnull()) | (NoMapping['Collection'] == "@")
         NoMapping = NoMapping[crit1 | crit3 | crit4 | crit5 | crit6]
     else:
         crit2 = (NoMapping['Item_Option'].isnull()) | (NoMapping['Item_Option'] == "@")

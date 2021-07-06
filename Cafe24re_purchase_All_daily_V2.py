@@ -140,8 +140,7 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     * SKU 매핑 / Pre_SKU 계산은 Pre_Item_Option과 동일 / Cur_SKU, Option_SKU, Interval_days_SKU 계산
     """
     Phonenum ="\'" + '\',\''.join(df['Phone_Number'].tolist()) + "\'"
-    cols = 'Date_, Phone_Number, Broad_Repurchase_User, Unused_Data, Item_Option, SKU, Sequence, ' \
-           'Last_Sequence_SKU, Sequence_Broad, First_Purchase_Date, Quantity_SKU'
+    cols = 'Date_, Phone_Number, Broad_Repurchase_User, Unused_Data, Item_Option, SKU, Sequence, Sequence_SKU, Sequence_Broad, First_Purchase_Date, Quantity_SKU'
 
     if Brd == 'fs':
         cols = cols.replace("Item_Option, ", "")
@@ -151,11 +150,13 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
         DB_past_query = 'Where Date_ < "{}" and Phone_Number in ({})'.format(start_date, Phonenum)
         DB_past_df = datalist_past('salesrp', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
         DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']]=DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']].replace('', 0).astype(int)  # sequence, sequence_sku, sequence_broad 형변환
+        DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
         DB_past_df = DB_past_df[DB_past_df['Unused_Data'] == '일반']
 
     # 전체 업데이트 하는경우
     elif update_all == True:
         DB_past_df = pd.DataFrame(index=range(0, len(cols)), columns=cols.split(', '))
+        DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
         if Brd == 'fs':
             DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,0,'-']
         else:
@@ -177,14 +178,14 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    del_data('salesrp', 'tb_salesrp_simple', del_query)
-    insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
+    # del_data('salesrp', 'tb_salesrp_simple', del_query)
+    # insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-    insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    # del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+    # insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -324,11 +325,11 @@ def main(Brand, start, end, update_all):
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
-    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
+    del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_edited', del_query)
+    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_edited')
 
-########## 여기까지 돌아감 #############
-'''핑거수트는 뭘 기준으로 하는지?'''
+    ########## 여기까지 돌아감 #############
+    '''핑거수트는 뭘 기준으로 하는지?'''
 
     # CrossSale RD 생성
     if Brand == '유리카':
@@ -357,13 +358,13 @@ def main(Brand, start, end, update_all):
     elif update_all == True:
         Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
 
-    del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-    insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
+    # del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+    # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
 
     Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
-    Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-    del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
-    insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
+    # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
+    # del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
+    # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":
@@ -373,13 +374,14 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    main('핑거수트', start=9000, end=0, update_all=True)
+    # main('핑거수트', start=9000, end=0, update_all=True)
 
-    # for Brand in ['핑거수트']: #'유리카', '클럭', '몽제', '티타드',
-    #     try :
-    #         main(Brand, start=9000, end=0, update_all=True)
-    #     except:
-    #         pass
+    for Brand in ['유리카', '클럭', '몽제', '티타드']: #'유리카', '클럭', '몽제', '티타드',
+        main(Brand, start=20, end=0, update_all=False)
+        # try :
+        #     main(Brand, start=9000, end=0, update_all=True)
+        # except:
+        #     pass
 
     print('end time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     print('\n')
