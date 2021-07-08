@@ -196,14 +196,15 @@ def get_Option_df(Brd):
 def Option_Mapping(Brd, df, Option_df):
     '''
     불러온 Option_df 정보를 구매정보에 매핑
-    * 안다르 : 주문상품명, Style_Code 기준으로 매핑
+    * 안다르 : Style_Code 기준으로 매핑
     * 데일리앤코 : 주문상품명, 상품옵션 기준으로 매핑
     '''
 
     if Brd == 'an':
         unique_cols = list(Option_df.columns)
-        Option_df = Option_df.drop_duplicates(['주문상품명', 'Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
-        df = pd.merge(left=df, right=Option_df, on=['주문상품명', 'Style_Code'], how='left')
+        unique_cols.remove('주문상품명')
+        Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
+        df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
         df[unique_cols] = df[unique_cols].fillna('@')
     else:
         if Brd == 'fs':
@@ -328,7 +329,7 @@ def Pre_Item_list(df):
 
 
 def Cur_Item_list(Brd, df):
-    if Brd == 'fs':
+    if Brd == 'fs' or Brd == 'an':
         pass
     else:
         cur_item_df = df[['Date_', 'Phone_Number', 'Sequence', 'Item_Option']]
@@ -359,7 +360,7 @@ def Pre_SKU_list(SKU_df):
 
 ###### 신규
 def Pre_Item_Option(Brd, DB_past_df, df):
-    if Brd == 'fs':
+    if Brd == 'fs' or Brd == 'an':
         pass
     else:
         Pre_Option_DB = DB_past_df[['Phone_Number', 'Sequence', 'Item_Option']]

@@ -29,12 +29,18 @@ def Broad_RePurchase(df, Brand):
     * Cohort_Days : 재구매 유저의 구매일자 - 첫구매일자
     """
 
-    df = df[['Phone_Number', 'Date_', 'Item', 'Broad_Repurchase_User_DB', 'Last_OrderDate', 'First_Purchase_Date_DB', 'Last_Sequence']]
-    df = df.sort_values(['Phone_Number', 'Date_'], ascending=(True, True))
-
-    Item_df = df.groupby(['Phone_Number', 'Date_'])['Item'].apply(list).reset_index()
-    Order_df = df[['Phone_Number', 'Date_', 'Broad_Repurchase_User_DB', 'Last_OrderDate', 'First_Purchase_Date_DB', 'Last_Sequence']].drop_duplicates()
-    Order_df = pd.merge(left=Order_df, right=Item_df, on=['Phone_Number', 'Date_'], how='left')
+    cols = ['Phone_Number', 'Date_', 'Item', 'Broad_Repurchase_User_DB', 'Last_OrderDate', 'First_Purchase_Date_DB', 'Last_Sequence']
+    if Brand == '안다르':
+        cols.remove('Item')
+        df = df[cols]
+        df = df.sort_values(['Phone_Number', 'Date_'], ascending=(True, True))
+        Order_df = df[['Phone_Number', 'Date_', 'Broad_Repurchase_User_DB', 'Last_OrderDate', 'First_Purchase_Date_DB', 'Last_Sequence']].drop_duplicates()
+    else:
+        df = df[cols]
+        df = df.sort_values(['Phone_Number', 'Date_'], ascending=(True, True))
+        Item_df = df.groupby(['Phone_Number', 'Date_'])['Item'].apply(list).reset_index()
+        Order_df = df[['Phone_Number', 'Date_', 'Broad_Repurchase_User_DB', 'Last_OrderDate', 'First_Purchase_Date_DB', 'Last_Sequence']].drop_duplicates()
+        Order_df = pd.merge(left=Order_df, right=Item_df, on=['Phone_Number', 'Date_'], how='left')
 
     Order_df['indexNum'] = Order_df.index
     Order_df['Sequence_new'] = Order_df.groupby('Phone_Number')['indexNum'].rank()
@@ -46,7 +52,7 @@ def Broad_RePurchase(df, Brand):
         fake_Order_df = fakeOrderdf_kl(Order_df)
     elif Brand == '몽제':
         fake_Order_df = fakeOrderdf_mz(Order_df)
-    elif Brand == '유리카' or Brand == '티타드' or Brand == '핑거수트':
+    elif Brand == '유리카' or Brand == '티타드' or Brand == '핑거수트' or Brand == '안다르':
         fake_Order_df = fakeOrderdf_pass(Order_df)
     Order_df = pd.merge(left=Order_df, right=fake_Order_df, on=['Phone_Number'], how='left')
 
@@ -117,7 +123,7 @@ def fakeOrderdf_kl(Order_df):
 
 
 def fakeOrderdf_pass(Order_df):
-    """ 유리카, 티타드, 핑거수트는 확장재구매 계산 안함 """
+    """ 유리카, 티타드, 핑거수트, 안다르는 확장재구매 계산 안함 """
     fake_Order_df = Order_df[Order_df['Sequence'] == 1]
     fake_Order_df['First_Purchase_Date_new'] = fake_Order_df['Date_']
     fake_Order_df['Broad_Repurchase_User_new'] = ""
@@ -141,21 +147,29 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
 
     if Brd == 'fs':
         cols = cols.replace("Item_Option, ", "")
+    elif Brd == 'an':
+        cols = cols.replace("Item_Option, ", "")
+        cols = cols.replace("Sequence_SKU, ", "")
 
     # 부분 업데이트 하는경우
     if update_all == False:
         DB_past_query = 'Where Date_ < "{}" and Phone_Number in ({})'.format(start_date, Phonenum)
         DB_past_df = datalist_past('salesrp', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
-        DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']]=DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']].replace('', 0).astype(int)  # sequence, sequence_sku, sequence_broad 형변환
-        DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
+        if Brd != 'an':
+            DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']]=DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']].replace('', 0).astype(int)  # sequence, sequence_sku, sequence_broad 형변환
+            DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
         DB_past_df = DB_past_df[DB_past_df['Unused_Data'] == '일반']
 
     # 전체 업데이트 하는경우
     elif update_all == True:
         DB_past_df = pd.DataFrame(index=range(0, len(cols)), columns=cols.split(', '))
-        DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
+        if Brd != 'an':
+            DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
+
         if Brd == 'fs':
             DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,0,'-']
+        elif Brd == 'an':
+            DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,'-']
         else:
             DB_past_df.loc[0]=[0,'-','-','-','-','-',0,0,0,0,'-']
 
