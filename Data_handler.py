@@ -14,7 +14,7 @@ def is_directory(dir):
     return directory
 
 
-def data_input(file_dir):
+def data_input(Brd, file_dir):
     """경로 내에 있는 모든 csv 파일 합치기"""
     all_df = pd.DataFrame()
     for i in file_dir:
@@ -26,6 +26,10 @@ def data_input(file_dir):
 
     # 배송상태만 다른 데이터 처리용 (배송완료&반품완료 등)
     all_df = all_df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
+
+    # 안다르 헤더명 조정
+    if Brd == 'an':
+        all_df = all_df.rename(columns = {'총 상품구매금액' : '총 상품구매금액(KRW)'})
 
     return all_df
 
@@ -99,7 +103,7 @@ def CommonColumns(df, Brand):
 
 
 def Item_Mapping(df, Brd):
-    if Brd == 'fs':
+    if Brd == 'fs' or Brd == 'an':
         pass
     else:
         item_mapping = datalist('map', 'tb_map_landingprdt_' + Brd, "")
@@ -136,16 +140,81 @@ def Blacklist_Mapping(df):
     return df
 
 
-def Option_Mapping(Brd, df, Option_df):
-    if Brd == 'fs' :
-        unique_cols = ['Item', 'Shape', 'Lineup', 'Collection']
-    else:
-        unique_cols = ['Item_Option']
+def get_Codes(Brd, df):
+    '''
+    * 안다르 주문상품명에서 Style_Code, Color_Code 추출
+    * 세트상품은 행분리
+    '''
 
-    Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
-    Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last') #매핑 중복기입 이슈 방지용
-    df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-    df[unique_cols] = df[unique_cols].fillna('@')
+    if Brd == 'an':
+        # product 코드 추출
+        Regex = re.compile('\[[0-9a-zA-Z]*-[0-9a-zA-Z]*\]|\([0-9a-zA-Z]*-[0-9a-zA-Z]*\)')
+        df['Product_Code'] = df['주문상품명(세트상품 포함)'].apply(lambda x: Regex.findall(str(x)))  # 코드가 리스트로 들어감, 대괄호 중괄호 모두 들어옴
+        df['Product_Code'] = df['Product_Code'].apply(lambda x: re.sub('[\[\]\(\)\']', '', str(x)) if len(x) > 0 else '구분불가')
+
+        # 행분리
+        df = tidy_split(df, 'Product_Code', sep=',')
+
+        # Style code와 color code 분리
+        df['Style_Code'] = df['Product_Code'].apply(
+            lambda x: x if x == '구분불가' else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
+                x.split('-')[0]) == 4 else x)
+        df['Color_Code'] = df['Product_Code'].apply(
+            lambda x: x if x == '구분불가' else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
+                x.split('-')[0]) == 4 else x)
+    else:
+        pass
+
+    return df
+
+
+def get_Option_df(Brd):
+    '''
+    * DB에서 옵션매핑 테이블 가져오기
+    * 안다르 : SA DB > andar.prdtinfo
+    * 데일리앤코 : ECOMMERCE DB > map.tb_map_primecost_option_Brd
+    * return 전 매핑기준열이 비어있을경우 '@' 로 채운다
+    '''
+    if Brd == 'an':
+        Option_df = datalist('andar', 'prdtinfo', "")
+        Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier',
+                             'Category1', 'Category2', 'Category3', 'Prime_Cost']
+        Option_df.loc[Option_df.Style_Code == '', 'Style_Code'] = '@'
+
+    else:
+        Option_df = datalist('map', 'tb_map_primecost_option_' + Brd, "")
+        if Brd == 'fs':
+            Option_df.columns = ['idx', '주문상품명', '상품옵션', 'SKU', 'Quantity_Bundle', 'Set', 'Item', 'Shape', 'Lineup',
+                                 'Collection']
+        else:
+            Option_df.columns = ['idx', '주문상품명', '상품옵션', 'Item_Code', 'Quantity_Bundle', 'Set', 'Item_Option', 'SKU']
+        Option_df.loc[Option_df.상품옵션=='', '상품옵션'] = '@'
+
+    return Option_df
+
+
+def Option_Mapping(Brd, df, Option_df):
+    '''
+    불러온 Option_df 정보를 구매정보에 매핑
+    * 안다르 : 주문상품명, Style_Code 기준으로 매핑
+    * 데일리앤코 : 주문상품명, 상품옵션 기준으로 매핑
+    '''
+
+    if Brd == 'an':
+        unique_cols = list(Option_df.columns)
+        Option_df = Option_df.drop_duplicates(['주문상품명', 'Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
+        df = pd.merge(left=df, right=Option_df, on=['주문상품명', 'Style_Code'], how='left')
+        df[unique_cols] = df[unique_cols].fillna('@')
+    else:
+        if Brd == 'fs':
+            unique_cols = ['Item', 'Shape', 'Lineup', 'Collection']
+        else:
+            unique_cols = ['Item_Option']
+
+        Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
+        Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
+        df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+        df[unique_cols] = df[unique_cols].fillna('@')
 
     return df
 

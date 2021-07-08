@@ -175,14 +175,14 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    del_data('salesrp', 'tb_salesrp_simple', del_query)
-    insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
+    # del_data('salesrp', 'tb_salesrp_simple', del_query)
+    # insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-    insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    # del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+    # insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -263,6 +263,9 @@ def main(Brand, start, end, update_all):
     elif Brand == '핑거수트':
         Brd = "fs"
         input_folder = "fingersuit"
+    elif Brand == '안다르':
+        Brd = "an"
+        input_folder = "andar"
 
     print(Brd, start_date, report_date)
 
@@ -274,12 +277,16 @@ def main(Brand, start, end, update_all):
         # 인풋누락일경우 로그에 기록
         if len(file_list)<1:
             print(Brd + "RD not found :",len(file_list),"files in current folder.")
-        df = Data_handler.data_input(file_list)
+        df = Data_handler.data_input(Brd, file_list)
 
     # 전체 업데이트 하는 경우
     elif update_all == True:
         df = pd.read_csv(Brand+'_수기인풋전체.csv', encoding='UTF-8')
         df = df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
+
+        # 안다르 헤더명 조정
+        if Brd == 'an':
+            df = df.rename(columns={'총 상품구매금액': '총 상품구매금액(KRW)'})
 
     df = df[df['결제일시(입금확인일)'] >= start_date]
     df = df[df['결제일시(입금확인일)'] <= end_date]
@@ -296,14 +303,15 @@ def main(Brand, start, end, update_all):
 
     df = Data_handler.NumColumns(df) # Sales_Total, Quantity_Option
 
-    Option_df = datalist('map', 'tb_map_primecost_option_' + Brd, "")
-    if Brd == 'fs':
-        Option_df.columns = ['idx', '주문상품명', '상품옵션', 'SKU', 'Quantity_Bundle', 'Set', 'Item', 'Shape', 'Lineup', 'Collection']
-    else:
-        Option_df.columns = ['idx', '주문상품명', '상품옵션', 'Item_Code', 'Quantity_Bundle', 'Set', 'Item_Option', 'SKU']
+    df = Data_handler.get_Codes(Brd, df) # Style_Code, Color_Code
 
-    Option_df.loc[Option_df.상품옵션=='', '상품옵션'] = '@'
-    df['상품옵션'] = df['상품옵션'].fillna("@")
+    Option_df = Data_handler.get_Option_df(Brd) # 옵션매핑테이블 불러오기
+
+    # 옵션매핑 기준열 결측값 채우기
+    if Brand == '안다르':
+        df['Style_Code'] = df['Style_Code'].fillna("@")
+    else:
+        df['상품옵션'] = df['상품옵션'].fillna("@")
 
     df = Data_handler.Option_Mapping(Brd, df, Option_df) # Item Option
 
@@ -322,8 +330,8 @@ def main(Brand, start, end, update_all):
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
-    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
+    # del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
+    # insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
 
     # CrossSale RD 생성 - 핑거수트는 제외
     if Brand == '핑거수트':
@@ -355,13 +363,13 @@ def main(Brand, start, end, update_all):
         elif update_all == True:
             Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
 
-        del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-        insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
+        # del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
 
         Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
         # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-        del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
-        insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
+        # del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
+        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":
@@ -371,18 +379,18 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    # main('핑거수트', start=9000, end=0, update_all=True)
+    main('안다르', start=9000, end=0, update_all=True)
 
-    for Brand in ['유리카', '클럭', '몽제', '티타드']:
-        try :
-            main(Brand, start=20, end=0, update_all=False)
-        except:
-            pass
+    # for Brand in ['유리카', '클럭', '몽제', '티타드', '안다르']:
+    #     try :
+    #         main(Brand, start=20, end=0, update_all=False)
+    #     except:
+    #         pass
 
-    try:
-        main('핑거수트', start=4, end=0, update_all=False)
-    except:
-        pass
+    # try:
+    #     main('핑거수트', start=4, end=0, update_all=False)
+    # except:
+    #     pass
 
     print('end time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     print('\n')

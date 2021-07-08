@@ -11,12 +11,21 @@ import re
 def datalist(schema, table, query):
     # user, password는 odbc 계정정보 넣기, 데이터베이스는 스키마명 입력
 
-    conn = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
-                           port=3306,
-                           user='echouser',
-                           passwd='Echomarketing123!',
-                           db=schema,
-                           charset='utf8')
+    if schema == 'map':
+        conn = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
+                               port=3306,
+                               user='echouser',
+                               passwd='Echomarketing123!',
+                               db=schema,
+                               charset='utf8')
+    elif schema == 'andar':
+        conn = pymysql.connect(host='db-cluster.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
+                               port=3306,
+                               user='sa',
+                               passwd='echodbs100!',
+                               db=schema,
+                               charset='utf8')
+
     query = 'select * from `' + schema + '`.`' + table + "`" + query
     print('select * from `' + schema + '`.`' + table)
     cursor = conn.cursor()
