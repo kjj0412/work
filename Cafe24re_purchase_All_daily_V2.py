@@ -165,7 +165,6 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
         DB_past_df = pd.DataFrame(index=range(0, len(cols)), columns=cols.split(', '))
         if Brd != 'an':
             DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
-
         if Brd == 'fs':
             DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,0,'-']
         elif Brd == 'an':
@@ -192,11 +191,11 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     # del_data('salesrp', 'tb_salesrp_simple', del_query)
     # insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
 
-    SKU_df = Data_handler.SKU_Mapping(df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
+    SKU_df = Data_handler.SKU_Mapping(Brd, df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    # del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-    # insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+    insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -204,9 +203,9 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
 
     SKU_df = Data_handler.Option_SKU_list(SKU_df) # Option_SKU
 
-    SKU_df = Data_handler.get_past_purchase_by_SKU(DB_past_df, SKU_df) # SKU별 마지막 구매날짜, 구매회차 lookup
+    SKU_df = Data_handler.get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df) # SKU별 마지막 구매날짜, 구매회차 lookup
 
-    SKU_df = Data_handler.Sequence_SKU(SKU_df) # Sequence_SKU
+    SKU_df = Data_handler.Sequence_SKU(Brd, SKU_df) # Sequence_SKU
 
     # Interval_Days_SKU
     if update_all == False:
@@ -222,7 +221,7 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
 
 def errData(df, Option_df, Brand, Brd):
 
-    df = Data_handler.SKU_Mapping(df, Option_df)
+    df = Data_handler.SKU_Mapping(Brd, df, Option_df)
     df = Data_handler.Option_SKU_list(df)
 
     df['Date_'] = df['Date_'].dt.strftime('%Y-%m-%d')
@@ -237,7 +236,7 @@ def errData(df, Option_df, Brand, Brd):
     df['Cur_SKU'] = ""
     df['Sequence_SKU'] = ""
 
-    if Brd != 'fs':
+    if Brd != 'fs' and Brd != 'an':
         df['Cur_Item_Option'] = ""
         df['Pre_Item_Option'] = ""
 
@@ -319,6 +318,8 @@ def main(Brand, start, end, update_all):
 
     df = Data_handler.get_Codes(Brd, df) # Style_Code, Color_Code
 
+    df = Data_handler.get_PaymentMethod(Brd, df) # 결제방식(대), 결제방식(중)
+
     Option_df = Data_handler.get_Option_df(Brd) # 옵션매핑테이블 불러오기
 
     # 옵션매핑 기준열 결측값 채우기
@@ -340,15 +341,15 @@ def main(Brand, start, end, update_all):
 
     final_df = final_df[final_field(Brd)]
 
-    # final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
+    final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    # del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
-    # insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
+    del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
+    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
 
-    # CrossSale RD 생성 - 핑거수트는 제외
-    if Brand == '핑거수트':
+    # CrossSale RD 생성 - 핑거수트, 안다르는 제외
+    if Brand == '핑거수트' or Brand == '안다르':
         pass
     else:
         if Brand == '유리카':

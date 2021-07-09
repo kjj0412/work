@@ -77,9 +77,12 @@ def PhoneNum_Filter(df):
 
 def CommonColumns(df, Brand):
     # 텍스트 replace (Brand, Marketplace)
-    df['주문경로'] = df['주문경로'].replace('모바일웹', '자사몰 일반')
-    df['주문경로'] = df['주문경로'].replace('PC쇼핑몰', '자사몰 일반')
-    df['주문경로'] = df['주문경로'].replace('네이버 페이', '자사몰 네이버페이')
+    if Brand == '안다르':
+        pass
+    else:
+        df['주문경로'] = df['주문경로'].replace('모바일웹', '자사몰 일반')
+        df['주문경로'] = df['주문경로'].replace('PC쇼핑몰', '자사몰 일반')
+        df['주문경로'] = df['주문경로'].replace('네이버 페이', '자사몰 네이버페이')
     # 기타열 생성
     df['Use_Coupon'] = df.apply(lambda x: "Y" if (x['쿠폰 할인금액'] > 0) else 'N', axis=1)
     df['Use_Credits'] = df.apply(lambda x: "Y" if (x['사용한 적립금액'] > 0) else 'N', axis=1)
@@ -168,6 +171,23 @@ def get_Codes(Brd, df):
     return df
 
 
+def get_PaymentMethod(Brd, df):
+    '''
+    * 결제방식(대)
+      - 주문경로 = 네이버 페이 이면 네이버페이, 그 외 일반구매
+    * 결제방식(중)
+      - 결제수단 = 적립금 이고 결제업체 = NULL 이면 적립금
+      - 결제수단이 적립금이 아니고 결제업체 = NULL 이면 네이버페이
+      - 그 외에는 결제업체 값과 동일
+    '''
+    if Brd == 'an':
+        df['결제방식(대)'] = df['Marketplace'].map({'PC쇼핑몰':'일반구매', '모바일웹':'일반구매', '모바일앱':'일반구매', '네이버 페이':'네이버페이'})
+        df['결제방식(중)'] = df.apply(lambda x : '적립금' if (x['결제수단'] == '적립금' and x['결제업체']=='NaN')
+                                else '네이버페이' if (x['결제수단'] != '적립금' and x['결제업체']=='NaN') else x['결제업체'], axis=1)
+    else:
+        pass
+    return df
+
 def get_Option_df(Brd):
     '''
     * DB에서 옵션매핑 테이블 가져오기
@@ -177,8 +197,8 @@ def get_Option_df(Brd):
     '''
     if Brd == 'an':
         Option_df = datalist('andar', 'prdtinfo', "")
-        Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier',
-                             'Category1', 'Category2', 'Category3', 'Prime_Cost']
+        Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier', 'Category1', 'Category2', 'Category3', 'Prime_Cost']
+        Option_df = Option_df[['Style_Code', 'Category1', 'Category2', 'Category3']]
         Option_df.loc[Option_df.Style_Code == '', 'Style_Code'] = '@'
 
     else:
@@ -202,7 +222,6 @@ def Option_Mapping(Brd, df, Option_df):
 
     if Brd == 'an':
         unique_cols = list(Option_df.columns)
-        unique_cols.remove('주문상품명')
         Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
         df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
         df[unique_cols] = df[unique_cols].fillna('@')
@@ -211,7 +230,6 @@ def Option_Mapping(Brd, df, Option_df):
             unique_cols = ['Item', 'Shape', 'Lineup', 'Collection']
         else:
             unique_cols = ['Item_Option']
-
         Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
         Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
         df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
@@ -220,21 +238,26 @@ def Option_Mapping(Brd, df, Option_df):
     return df
 
 
-def SKU_Mapping(df, Option_df):
+def SKU_Mapping(Brd, df, Option_df):
     """
     같은 주문상품명&상품옵션에 대해 SKU가 여러개 들어있는 경우 left outer join되어 행이 늘어남
     """
-    Option_df = Option_df[['주문상품명', '상품옵션', 'Set', 'Quantity_Bundle', 'SKU']]
-    Option_df = Option_df[~((Option_df['Set'] == '세트') & (Option_df['SKU'] == 'nan'))] #세트인데 SKU 매핑이 null이면 필터링
-    Option_df = Option_df[Option_df['SKU'] != '증정품'] #증정품 필터링
-    Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'Quantity_Bundle', 'SKU'], keep='last')
-    Option_df['SKU'] = Option_df['SKU'].fillna("@") #단품인데 null이면 @로 채움
-    Option_df = Option_df.drop(columns="Set")
-    df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-    df['SKU'] = df['SKU'].fillna("@") #단품인데 null이면 @로 채움
+    if Brd == 'an':
+        df['SKU']=df.Style_Code
+        df['Quantity_Bundle'] = 1 #quantity_bundle이 안다르는 옵션매핑에서 들어오지 않음
+        df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
+    else:
+        Option_df = Option_df[['주문상품명', '상품옵션', 'Set', 'Quantity_Bundle', 'SKU']]
+        Option_df = Option_df[~((Option_df['Set'] == '세트') & (Option_df['SKU'] == 'nan'))] #세트인데 SKU 매핑이 null이면 필터링
+        Option_df = Option_df[Option_df['SKU'] != '증정품'] #증정품 필터링
+        Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'Quantity_Bundle', 'SKU'], keep='last')
+        Option_df['SKU'] = Option_df['SKU'].fillna("@") #단품인데 null이면 @로 채움
+        Option_df = Option_df.drop(columns="Set")
+        df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+        df['SKU'] = df['SKU'].fillna("@") #단품인데 null이면 @로 채움
 
-    df['Quantity_Bundle'] = df['Quantity_Bundle'].fillna(0).replace('', 0).astype(int)
-    df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
+        df['Quantity_Bundle'] = df['Quantity_Bundle'].fillna(0).replace('', 0).astype(int) #quantity_bundle이 안다르는 옵션매핑에서 들어오지 않음
+        df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
 
     return df
 
@@ -242,25 +265,39 @@ def SKU_Mapping(df, Option_df):
 def MappingCheck(df, Brd):
     if Brd == 'fs':
         cols = ['Item', '주문상품명', '상품옵션', 'SKU', 'Shape', 'Lineup', 'Collection']
+    elif Brd == 'an':
+        cols = ['주문상품명', '상품옵션', 'SKU', 'Style_Code', 'Color_Code', 'Category1', 'Category2', 'Category3']
     else:
-        cols = ['Landing', 'Item', '주문상품명', '상품옵션', 'Item_Option', 'Quantity_Option', 'SKU'] #Quantity_Option 가져온 이유..?
+        cols = ['Landing', 'Item', '주문상품명', '상품옵션', 'Item_Option', 'Quantity_Option', 'SKU']
 
     NoMapping = df[cols]
-    crit1 = (NoMapping['Item'].isnull()) | (NoMapping['Item'] == "@")
-    crit3 = (NoMapping['SKU'].isnull()) | (NoMapping['SKU'] == "@")
 
-    if (Brd == "yc") or (Brd == "tt"):
+    crit3 = (NoMapping['SKU'].isnull()) | (NoMapping['SKU'] == "@")
+    if Brd == "yc" or Brd == "tt":
+        crit1 = (NoMapping['Item'].isnull()) | (NoMapping['Item'] == "@")
         NoMapping = NoMapping[crit1 | crit3]
+        NoMapping = NoMapping.drop_duplicates(['Landing', '주문상품명', '상품옵션'])
     elif Brd == "fs":
+        crit1 = (NoMapping['Item'].isnull()) | (NoMapping['Item'] == "@")
         crit4 = (NoMapping['Shape'].isnull()) | (NoMapping['Shape'] == "@")
         crit5 = (NoMapping['Lineup'].isnull()) | (NoMapping['Lineup'] == "@")
         crit6 = (NoMapping['Collection'].isnull()) | (NoMapping['Collection'] == "@")
         NoMapping = NoMapping[crit1 | crit3 | crit4 | crit5 | crit6]
+        NoMapping = NoMapping.drop_duplicates(['주문상품명', '상품옵션'])
+    elif Brd == "an":
+        crit7 = (NoMapping['Style_Code'].isnull()) | (NoMapping['Style_Code'] == "@")
+        crit8 = (NoMapping['Color_Code'].isnull()) | (NoMapping['Color_Code'] == "@")
+        crit9 = (NoMapping['Category1'].isnull()) | (NoMapping['Category1'] == "@")
+        crit10 = (NoMapping['Category2'].isnull()) | (NoMapping['Category2'] == "@")
+        crit11 = (NoMapping['Category3'].isnull()) | (NoMapping['Category3'] == "@")
+        NoMapping = NoMapping[crit7 | crit8 | crit9 | crit10 | crit11]
+        NoMapping = NoMapping.drop_duplicates(['주문상품명', '상품옵션'])
     else:
+        crit1 = (NoMapping['Item'].isnull()) | (NoMapping['Item'] == "@")
         crit2 = (NoMapping['Item_Option'].isnull()) | (NoMapping['Item_Option'] == "@")
         NoMapping = NoMapping[crit1 | crit2 | crit3]
+        NoMapping = NoMapping.drop_duplicates(['Landing', '주문상품명', '상품옵션'])
 
-    NoMapping = NoMapping.drop_duplicates(['Landing', '주문상품명', '상품옵션'])
     return NoMapping
 
 
@@ -433,20 +470,23 @@ def Option_SKU_list(SKU_df):
 
 
 #### 신규
-def get_past_purchase_by_SKU(DB_past_df, SKU_df):
+def get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df):
     '''
     Phone_Number, SKU 기준으로 과거 정보 붙이기
     * DB 데이터에서 Phone_Number, SKU별 마지막 구매회차 lookup (Last_Sequence_SKU)
     * DB 데이터에서 Phone_Number, SKU별 마지막 구매날짜 lookup (Last_Date_SKU)
     '''
-    Past_df = DB_past_df[['Phone_Number', 'SKU', 'Date_', 'Last_Sequence_SKU']]
 
-    # DB 내 SKU별 마지막 구매회차
-    Sequence_SKU_DB = Past_df.drop(columns='Date_').groupby(['Phone_Number', 'SKU']).max('Last_Sequence_SKU').reset_index()
-    SKU_df = pd.merge(left=SKU_df, right=Sequence_SKU_DB, on=['Phone_Number', 'SKU'], how='left')
+    if Brd == 'an':
+        Past_df = DB_past_df[['Phone_Number', 'SKU', 'Date_']]
+    else:
+        Past_df = DB_past_df[['Phone_Number', 'SKU', 'Date_', 'Last_Sequence_SKU']]
+        # DB 내 SKU별 마지막 구매회차
+        Sequence_SKU_DB = Past_df.drop(columns='Date_').groupby(['Phone_Number', 'SKU']).max('Last_Sequence_SKU').reset_index()
+        SKU_df = pd.merge(left=SKU_df, right=Sequence_SKU_DB, on=['Phone_Number', 'SKU'], how='left')
+        Past_df = Past_df.drop(columns='Last_Sequence_SKU')
 
     # DB 내 SKU별 마지막 구매일자
-    Past_df = Past_df.drop(columns='Last_Sequence_SKU')
     Past_df = Past_df.sort_values(['Phone_Number', 'SKU', 'Date_'], ascending=(True, True, True))
     Past_df = Past_df.drop_duplicates(subset=['Phone_Number', 'SKU'], keep='last')
     Past_df = Past_df.rename(columns={'Date_' : 'Last_Date_SKU'})
@@ -458,7 +498,7 @@ def get_past_purchase_by_SKU(DB_past_df, SKU_df):
     return SKU_df
 
 #### 신규
-def Sequence_SKU(SKU_df):
+def Sequence_SKU(Brd, SKU_df):
     '''
     * 이번 기간 데이터에서 Phone_Number, SKU별 Sequence의 순서 매기기 (Sequence_SKU_new)
     * Sequence_SKU : SKU별 구매회차 구하기
@@ -466,11 +506,14 @@ def Sequence_SKU(SKU_df):
       - 과거 구매정보 없으면 현재 Sequence_SKU
     '''
 
-    SKU_df['Sequence_SKU_new'] = SKU_df.groupby(['SKU', 'Phone_Number'])['Sequence'].rank(method='dense')
-    SKU_df['Sequence_SKU'] = SKU_df.apply(
-        lambda x: x['Sequence_SKU_new'] + x['Last_Sequence_SKU'] if x['Last_Sequence_SKU'] > 0
-        else x['Sequence_SKU_new'], axis=1)
-    SKU_df.drop(columns=['Sequence_SKU_new', 'Last_Sequence_SKU'])
+    if Brd == 'an':
+        pass
+    else:
+        SKU_df['Sequence_SKU_new'] = SKU_df.groupby(['SKU', 'Phone_Number'])['Sequence'].rank(method='dense')
+        SKU_df['Sequence_SKU'] = SKU_df.apply(
+            lambda x: x['Sequence_SKU_new'] + x['Last_Sequence_SKU'] if x['Last_Sequence_SKU'] > 0
+            else x['Sequence_SKU_new'], axis=1)
+        SKU_df.drop(columns=['Sequence_SKU_new', 'Last_Sequence_SKU'])
 
     return SKU_df
 
