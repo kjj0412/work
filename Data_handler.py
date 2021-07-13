@@ -55,6 +55,8 @@ def PhoneNum_Filter(df):
                                             (x['Phone_Number'].endswith('--')) or (x['Phone_Number'] == 'nan')
                                             else x['Phone_Number'], axis=1)
 
+    df = df.astype({'Phone_Number': str})
+
     #오류번호
     df['Unused_Data'] = df.apply(lambda x : '오류번호'
             if (x['Phone_Number'].startswith('000')) or (x['Phone_Number'].endswith('123-1234')) or (x['Phone_Number'].endswith('1234-1234'))
@@ -157,6 +159,7 @@ def get_Codes(Brd, df):
 
         # 행분리
         df = tidy_split(df, 'Product_Code', sep=',')
+        df['Product_Code'] = df['Product_Code'].apply(lambda x:x.strip())
 
         # Style code와 color code 분리
         df['Style_Code'] = df['Product_Code'].apply(
@@ -395,7 +398,7 @@ def Pre_SKU_list(SKU_df):
 
     return Pre_SKU_df
 
-###### 신규
+
 def Pre_Item_Option(Brd, DB_past_df, df):
     if Brd == 'fs' or Brd == 'an':
         pass
@@ -417,7 +420,7 @@ def Pre_Item_Option(Brd, DB_past_df, df):
 
     return df
 
-###### 신규
+
 def Pre_SKU(DB_past_df, SKU_df):
     Pre_SKU_df_DB = DB_past_df[['Phone_Number', 'Sequence', 'SKU', 'Quantity_SKU']]
     Pre_SKU_df_DB = Pre_SKU_list(Pre_SKU_df_DB)
@@ -469,7 +472,6 @@ def Option_SKU_list(SKU_df):
     return SKU_df
 
 
-#### 신규
 def get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df):
     '''
     Phone_Number, SKU 기준으로 과거 정보 붙이기

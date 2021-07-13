@@ -49,18 +49,26 @@ def datalist(schema, table, query):
 def datalist_past(schema, table, cols, query):
     # user, password는 odbc 계정정보 넣기, 데이터베이스는 스키마명 입력
 
-    conn2 = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
-                            port=3306,
-                            user='echouser',
-                            passwd='Echomarketing123!',
-                            db=schema,
-                            charset='utf8')
+    if schema == 'salesrp':
+        conn2 = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
+                               port=3306,
+                               user='echouser',
+                               passwd='Echomarketing123!',
+                               db=schema,
+                               charset='utf8')
+    elif schema == 'andar':
+        conn2 = pymysql.connect(host='db-cluster.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
+                               port=3306,
+                               user='sa',
+                               passwd='echodbs100!',
+                               db=schema,
+                               charset='utf8')
+
     query = 'select ' + cols + ' from `' + schema + '`.`' + table + "`" + query
     print('select some columns from `' + schema + '`.`' + table)
     cursor2 = conn2.cursor()
 
     try:
-
         cursor2.execute(query)
         result = cursor2.fetchall()  # 실행 완료된 데이터를 다운받는 개념
         df = pd.DataFrame(result)
@@ -77,8 +85,21 @@ def datalist_past(schema, table, cols, query):
 
 
 def del_data(schema, table, del_query):
-    conn = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com', port=3306,
-                           user='echouser', passwd='Echomarketing123!', db=schema, charset='utf8')
+    if schema == 'salesrp':
+        conn = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
+                               port=3306,
+                               user='echouser',
+                               passwd='Echomarketing123!',
+                               db=schema,
+                               charset='utf8')
+    elif schema == 'andar':
+        conn = pymysql.connect(host='db-cluster.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
+                               port=3306,
+                               user='sa',
+                               passwd='echodbs100!',
+                               db=schema,
+                               charset='utf8')
+
     query = 'DELETE FROM `' + schema + '`.`' + table + '` ' + del_query
 
     try:
@@ -109,9 +130,15 @@ def del_data(schema, table, del_query):
 
 
 def insert_data(data, schema, table):
-    engine = create_engine(
-        "mysql+pymysql://echouser:" + "Echomarketing123!" + "@ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com:3306/" + schema + "?charset=utf8mb4",
-        encoding='utf8')
+
+    if schema == 'andar':
+        engine = create_engine(
+            "mysql+pymysql://sa:" + "echodbs100!" + "@db-cluster.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com:3306/" + schema + "?charset=utf8mb4",
+            encoding='utf8')
+    else:
+        engine = create_engine(
+            "mysql+pymysql://echouser:" + "Echomarketing123!" + "@ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com:3306/" + schema + "?charset=utf8mb4",
+            encoding='utf8')
 
     with engine.connect() as conn:
         try:

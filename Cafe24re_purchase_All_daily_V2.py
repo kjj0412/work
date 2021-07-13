@@ -154,8 +154,11 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     # 부분 업데이트 하는경우
     if update_all == False:
         DB_past_query = 'Where Date_ < "{}" and Phone_Number in ({})'.format(start_date, Phonenum)
-        DB_past_df = datalist_past('salesrp', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
-        if Brd != 'an':
+        if Brd == 'an':
+            DB_past_df = datalist_past('andar', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
+            DB_past_df[['Sequence', 'Sequence_Broad']] = DB_past_df[['Sequence', 'Sequence_Broad']].replace('', 0).astype(int)
+        else:
+            DB_past_df = datalist_past('salesrp', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
             DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']]=DB_past_df[['Sequence', 'Sequence_SKU', 'Sequence_Broad']].replace('', 0).astype(int)  # sequence, sequence_sku, sequence_broad 형변환
             DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
         DB_past_df = DB_past_df[DB_past_df['Unused_Data'] == '일반']
@@ -188,14 +191,22 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    # del_data('salesrp', 'tb_salesrp_simple', del_query)
-    # insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
+    if Brd == 'an':
+        del_data('andar', 'tb_salesrp_simple', del_query)
+        insert_data(simple_df, 'andar', 'tb_salesrp_simple')
+    else:
+        del_data('salesrp', 'tb_salesrp_simple', del_query)
+        insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(Brd, df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-    insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    if Brd == 'an':
+        del_data('andar', 'tb_salesrp_mapnull_' + Brd, '')
+        insert_data(NoMapping, 'andar', 'tb_salesrp_mapnull_' + Brd)
+    else:
+        del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+        insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -284,8 +295,12 @@ def main(Brand, start, end, update_all):
 
     # 부분 업데이트 하는 경우
     if update_all == False:
-        input_dir = "..\\..\\데일리앤코_Pentaho_리뉴얼_V2\\데일리앤코RD\\" + report_date + "\\input\\카페24\\수기_order\\" + input_folder
-        file_list = [f for f in glob.glob(input_dir + '/*.csv')]
+        if Brd == 'an':
+            input_dir = "..\\..\\..\\..\\..\\계정_안다르\\7. ETL_안다르\\안다르_Pentaho_최종본_V1\\안다르RD\\" + report_date + "\\input\\Cafe24\\order"
+            file_list = [f for f in glob.glob(input_dir + '/*.csv')]
+        else:
+            input_dir = "..\\..\\데일리앤코_Pentaho_리뉴얼_V2\\데일리앤코RD\\" + report_date + "\\input\\카페24\\수기_order\\" + input_folder
+            file_list = [f for f in glob.glob(input_dir + '/*.csv')]
 
         # 인풋누락일경우 로그에 기록
         if len(file_list)<1:
@@ -341,50 +356,54 @@ def main(Brand, start, end, update_all):
 
     final_df = final_df[final_field(Brd)]
 
-    final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
+    # final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
-    insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
-
-    # CrossSale RD 생성 - 핑거수트, 안다르는 제외
-    if Brand == '핑거수트' or Brand == '안다르':
-        pass
+    if Brd == 'an':
+        del_data('andar', 'tb_salesrp_sku_' + Brd, del_query)
+        insert_data(final_df, 'andar', 'tb_salesrp_sku_' + Brd)
     else:
-        if Brand == '유리카':
-            value = 'SKU'
-        elif Brand == '티타드':
-            value = 'Cur_SKU'
-        else:
-            value = 'Item_Option'
+        del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
+        insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
 
-        # 부분 업데이트 하는 경우
-        if update_all == False:
-            Past_Cross_df = datalist('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-            Past_Cross_df = Past_Cross_df.drop(columns=0)
-            Past_Cross_df.columns = ['Brand', 'Phone_Number', 'First_Purchase_Date', 'Sequence', 'Product']
-
-            Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
-            Cross_df = pd.concat([Past_Cross_df, Cross_df], ignore_index=True)
-            Cross_df = Cross_df.astype({'Phone_Number' : str,
-                                        'First_Purchase_Date' : str,
-                                        'Sequence' : float,
-                                        'Product' : str})
-            Cross_df = Cross_df.sort_values(by=['Brand', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
-            Cross_df = Cross_df.drop_duplicates(['Phone_Number', 'Sequence'], keep='last')
-
-        # 전체 업데이트 하는 경우
-        elif update_all == True:
-            Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
-
-        # del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
-
-        Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
-        # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-        # del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
-        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
+    # # CrossSale RD 생성 - 핑거수트, 안다르는 제외
+    # if Brand == '핑거수트' or Brand == '안다르':
+    #     pass
+    # else:
+    #     if Brand == '유리카':
+    #         value = 'SKU'
+    #     elif Brand == '티타드':
+    #         value = 'Cur_SKU'
+    #     else:
+    #         value = 'Item_Option'
+    #
+    #     # 부분 업데이트 하는 경우
+    #     if update_all == False:
+    #         Past_Cross_df = datalist('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+    #         Past_Cross_df = Past_Cross_df.drop(columns=0)
+    #         Past_Cross_df.columns = ['Brand', 'Phone_Number', 'First_Purchase_Date', 'Sequence', 'Product']
+    #
+    #         Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
+    #         Cross_df = pd.concat([Past_Cross_df, Cross_df], ignore_index=True)
+    #         Cross_df = Cross_df.astype({'Phone_Number' : str,
+    #                                     'First_Purchase_Date' : str,
+    #                                     'Sequence' : float,
+    #                                     'Product' : str})
+    #         Cross_df = Cross_df.sort_values(by=['Brand', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+    #         Cross_df = Cross_df.drop_duplicates(['Phone_Number', 'Sequence'], keep='last')
+    #
+    #     # 전체 업데이트 하는 경우
+    #     elif update_all == True:
+    #         Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
+    #
+    #     # del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+    #     # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
+    #
+    #     Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
+    #     # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
+    #     # del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
+    #     # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":
@@ -394,13 +413,14 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    main('안다르', start=9000, end=0, update_all=True)
+    main('안다르', start=20, end=0, update_all=False)
 
-    # for Brand in ['유리카', '클럭', '몽제', '티타드', '안다르']:
-    #     try :
-    #         main(Brand, start=20, end=0, update_all=False)
-    #     except:
-    #         pass
+    # for Brand in ['클럭', '몽제', '유리카']: #'유리카', , '티타드'
+    #     main(Brand, start=20, end=0, update_all=False)
+        # try :
+        #     main(Brand, start=9000, end=0, update_all=True)
+        # except:
+        #     pass
 
     # try:
     #     main('핑거수트', start=4, end=0, update_all=False)
