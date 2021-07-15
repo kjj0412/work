@@ -185,8 +185,13 @@ def get_PaymentMethod(Brd, df):
     '''
     if Brd == 'an':
         df['결제방식(대)'] = df['Marketplace'].map({'PC쇼핑몰':'일반구매', '모바일웹':'일반구매', '모바일앱':'일반구매', '네이버 페이':'네이버페이'})
-        df['결제방식(중)'] = df.apply(lambda x : '적립금' if (x['결제수단'] == '적립금' and x['결제업체']=='NaN')
-                                else '네이버페이' if (x['결제수단'] != '적립금' and x['결제업체']=='NaN') else x['결제업체'], axis=1)
+        df['결제업체'] = df['결제업체'].astype('str')
+        df['결제방식(중)'] = df.apply(
+            lambda x: '적립금'
+            if ((x['결제수단'] == '적립금') and (x['결제업체'] == 'nan'))
+            else '네이버페이' if ((x['결제수단'] != '적립금') and (x['결제업체'] == 'nan'))
+            else (x['결제업체']), axis=1)
+
     else:
         pass
     return df

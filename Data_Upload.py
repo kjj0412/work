@@ -11,7 +11,7 @@ import re
 def datalist(schema, table, query):
     # user, password는 odbc 계정정보 넣기, 데이터베이스는 스키마명 입력
 
-    if schema == 'map':
+    if schema == 'map' or schema == 'salesrp':
         conn = pymysql.connect(host='ecommerce-part1.cluster-cg6g43iitkzh.ap-northeast-2.rds.amazonaws.com',
                                port=3306,
                                user='echouser',
