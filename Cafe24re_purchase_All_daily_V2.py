@@ -320,13 +320,13 @@ def main(Brand, start, end, update_all):
     df = df[df['결제일시(입금확인일)'] >= start_date]
     df = df[df['결제일시(입금확인일)'] <= end_date]
 
-    df = Data_handler.PhoneNum_Filter(df)  # 오류번호, 내부번호
+    df = Data_handler.PhoneNum_Filter(df, Brd)  # 오류번호, 내부번호
 
     df = Data_handler.orderStatus_filter(df, Brd)  # 반품
 
     df = Data_handler.CommonColumns(df, Brand) # 쉬운 가공열들
 
-    df = Data_handler.Blacklist_Mapping(df)  # Bulk
+    df = Data_handler.Blacklist_Mapping(df, Brd)  # Bulk
 
     df = Data_handler.Item_Mapping(df, Brd) # Landing, Item
 
@@ -415,7 +415,7 @@ if __name__ == "__main__":
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-    for Brand in ['유리카', '클럭', '몽제', '티타드']: #안다르
+    for Brand in ['유리카', '클럭', '몽제', '티타드']:
         try :
             main(Brand, start=20, end=0, update_all=False)
         except Exception as e:

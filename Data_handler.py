@@ -42,7 +42,7 @@ def orderStatus_filter(df, Brd):
     return df
 
 
-def PhoneNum_Filter(df):
+def PhoneNum_Filter(df, Brd):
     #전화번호 합치기
     df['Phone_Number'] = df.apply(
         lambda x: x['주문자 휴대전화'] if ((x['주문자 휴대전화'] != "--") and not (pd.isnull(x['주문자 휴대전화'])))
@@ -68,9 +68,14 @@ def PhoneNum_Filter(df):
         df['Unused_Data'] = df.apply(lambda x: '오류번호' if x['Num_filter'].count(str(i)) >= 7 else x['Unused_Data'], axis=1)
 
     #내부번호
-    phone_filter = pd.read_excel('..\\..\\데일리앤코_Pentaho_리뉴얼_V1\\Mapping\\[Repurchase] 재구매_내부번호.xlsx',
-                                 sheet_name='내부번호',
-                                 names=['Phone_Number'])
+    if Brd == 'an':
+        phone_filter = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+                                     sheet_name='내부번호',
+                                     names=['Phone_Number'])
+    else:
+        phone_filter = pd.read_excel('..\\..\\데일리앤코_Pentaho_리뉴얼_V1\\Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+                                     sheet_name='내부번호',
+                                     names=['Phone_Number'])
     phone_filter['Check'] = 'O'
     df = pd.merge(left=df, right=phone_filter, on=['Phone_Number'], how='left')
     df['Unused_Data'] = df.apply(lambda x: '내부번호' if x['Check'] == 'O' else x['Unused_Data'], axis=1)
@@ -132,10 +137,15 @@ def Item_Mapping(df, Brd):
     return df
 
 
-def Blacklist_Mapping(df):
-    Black_mapping = pd.read_excel('..\\..\\데일리앤코_Pentaho_리뉴얼_V1\\Mapping\\[Repurchase] 재구매_내부번호.xlsx',
-                                 sheet_name='블랙리스트',
-                                 names=['Brand', 'Phone_Number'])
+def Blacklist_Mapping(df, Brd):
+    if Brd == 'an':
+        Black_mapping = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+                                      sheet_name='블랙리스트',
+                                      names=['Brand', 'Phone_Number'])
+    else:
+        Black_mapping = pd.read_excel('..\\..\\데일리앤코_Pentaho_리뉴얼_V1\\Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+                                     sheet_name='블랙리스트',
+                                     names=['Brand', 'Phone_Number'])
     Black_mapping = Black_mapping.drop_duplicates()
     Black_mapping['Bulk'] = '블랙리스트'
     df = pd.merge(left=df, right=Black_mapping, on=['Brand', 'Phone_Number'], how='left')
