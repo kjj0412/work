@@ -19,6 +19,7 @@ def field_sorting(Brd):
             # 'Item_Option',
             # 'Pre_Item_Option',
             # 'Cur_Item_Option',
+            'SKU_Code', #추가됨
             'SKU',
             'Pre_SKU',
             'Cur_SKU',
@@ -149,8 +150,8 @@ def final_field(Brd):
             # 'Item_Option',
             # 'Pre_Item_Option',
             # 'Cur_Item_Option',
+            'SKU_Code',  # 추가됨
             'SKU',
-            'SKU_Name', # 추가됨
             'Pre_SKU',
             'Cur_SKU',
             'Option_SKU',
