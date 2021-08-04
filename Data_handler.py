@@ -222,7 +222,7 @@ def get_Option_df(Brd):
     else:
         Option_df = datalist('map', 'tb_map_primecost_option_' + Brd, "")
         if Brd == 'fs':
-            Option_df.columns = ['idx', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Item', 'SKU',
+            Option_df.columns = ['idx', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'SKU', 'Item',
                                  'Shape', 'Lineup', 'Collection']
         else:
             Option_df.columns = ['idx', '주문상품명', '상품옵션', 'Item_Code', 'Quantity_Bundle', 'Set', 'Item_Option', 'SKU']
@@ -655,7 +655,19 @@ def Row_divide(df):
                   how='left')
     df['Quantity_Divide'] = df['Quantity_Option'] / df['Quantity_Rows']
     df['Sales_Divide'] = df['Sales_Total'] / df['Quantity_Rows']
-    df = df.rename(columns={'주문상품명':'SKU_Name'})
+
+    # Quantity_SKU 비중으로 Sales, Quantity 계산
+    Sum_df = df.copy()
+    Sum_df = Sum_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])["Quantity_SKU"]\
+        .sum().reset_index()
+    Sum_df = Sum_df.rename(columns = {'Quantity_SKU' : 'Quantity_Sum_SKU'})
+
+    df = pd.merge(left=df, right = Sum_df,
+                  on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
+                  how='left')
+    df['Quantity_Divide_SKU'] = df['Quantity_SKU'] / df['Quantity_Sum_SKU']
+    df['Quantity_Divide_SKU']=df['Quantity_Divide_SKU'].fillna(0)
+    df['Sales_Divide_SKU'] = df['Sales_Total'] * df['Quantity_Divide_SKU']
 
     return df
 
