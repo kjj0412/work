@@ -254,9 +254,7 @@ def final_field(Brd):
             'Quantity_Bundle',
             'Quantity_Rows',
             'Quantity_Divide',
-            'Quantity_Divide_SKU', #임시추가됨
             'Sales_Total',
-            'Sales_Divide',
-            'Sales_Divide_SKU' #임시추가됨
+            'Sales_Divide'
         ]
     return ColumnName

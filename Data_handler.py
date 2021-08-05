@@ -665,9 +665,10 @@ def Row_divide(df):
     df = pd.merge(left=df, right = Sum_df,
                   on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
                   how='left')
-    df['Quantity_Divide_SKU'] = df['Quantity_SKU'] / df['Quantity_Sum_SKU']
-    df['Quantity_Divide_SKU']=df['Quantity_Divide_SKU'].fillna(0)
-    df['Sales_Divide_SKU'] = df['Sales_Total'] * df['Quantity_Divide_SKU']
+    df['Quantity_Divide_ratio'] = df['Quantity_SKU'] / df['Quantity_Sum_SKU']
+    df['Quantity_Divide_ratio']=df['Quantity_Divide_ratio'].fillna(0)
+    df['Quantity_Divide'] = df['Quantity_Option'] * df['Quantity_Divide_ratio']
+    df['Sales_Divide'] = df['Sales_Total'] * df['Quantity_Divide_ratio']
 
     return df
 
