@@ -58,8 +58,8 @@ def field_sorting(Brd):
             'Bulk',
             'Unused_Data',
             'Use_Credits',
-            '결제방식(대)',  # 추가됨
-            '결제방식(중)',  # 추가됨
+            'Payment_Method_1',  # 추가됨
+            'Payment_Method_2',  # 추가됨
             # 'Item_Option',
             # 'Pre_Item_Option',
             # 'Cur_Item_Option',
@@ -188,8 +188,8 @@ def final_field(Brd):
             'Bulk',
             'Unused_Data',
             'Use_Credits',
-            '결제방식(대)', # 추가됨
-            '결제방식(중)', # 추가됨
+            'Payment_Method_1', # 추가됨
+            'Payment_Method_2', # 추가됨
             # 'Item_Option',
             # 'Pre_Item_Option',
             # 'Cur_Item_Option',

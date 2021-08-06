@@ -24,6 +24,10 @@ def data_input(Brd, file_dir):
             df = pd.read_csv(i, encoding='euc-kr')
         all_df = all_df.append(df)
 
+    ## 중복된 케이스 따로 추출
+    duplicated = all_df[all_df.duplicated(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep=False)]
+    duplicated.to_csv(Brd + '_중복케이스.csv', encoding='utf-8-sig', index=False)
+
     # 배송상태만 다른 데이터 처리용 (배송완료&반품완료 등)
     all_df = all_df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
 
@@ -69,11 +73,11 @@ def PhoneNum_Filter(df, Brd):
 
     #내부번호
     if Brd == 'an':
-        phone_filter = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+        phone_filter = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호_an.xlsx',
                                      sheet_name='내부번호',
                                      names=['Phone_Number'])
     else:
-        phone_filter = pd.read_excel('..\\..\\데일리앤코_Pentaho_리뉴얼_V1\\Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+        phone_filter = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호.xlsx',
                                      sheet_name='내부번호',
                                      names=['Phone_Number'])
     phone_filter['Check'] = 'O'
@@ -139,13 +143,13 @@ def Item_Mapping(df, Brd):
 
 def Blacklist_Mapping(df, Brd):
     if Brd == 'an':
-        Black_mapping = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+        Black_mapping = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호_an.xlsx',
                                       sheet_name='블랙리스트',
                                       names=['Brand', 'Phone_Number'])
     else:
-        Black_mapping = pd.read_excel('..\\..\\데일리앤코_Pentaho_리뉴얼_V1\\Mapping\\[Repurchase] 재구매_내부번호.xlsx',
-                                     sheet_name='블랙리스트',
-                                     names=['Brand', 'Phone_Number'])
+        Black_mapping = pd.read_excel('Mapping\\[Repurchase] 재구매_내부번호.xlsx',
+                                      sheet_name='블랙리스트',
+                                      names=['Brand', 'Phone_Number'])
     Black_mapping = Black_mapping.drop_duplicates()
     Black_mapping['Bulk'] = '블랙리스트'
     df = pd.merge(left=df, right=Black_mapping, on=['Brand', 'Phone_Number'], how='left')
@@ -186,17 +190,17 @@ def get_Codes(Brd, df):
 
 def get_PaymentMethod(Brd, df):
     '''
-    * 결제방식(대)
+    * Payment_Method_1 = 결제방식(대)
       - 주문경로 = 네이버 페이 이면 네이버페이, 그 외 일반구매
-    * 결제방식(중)
+    * Payment_Method_2 = 결제방식(중)
       - 결제수단 = 적립금 이고 결제업체 = NULL 이면 적립금
       - 결제수단이 적립금이 아니고 결제업체 = NULL 이면 네이버페이
       - 그 외에는 결제업체 값과 동일
     '''
     if Brd == 'an':
-        df['결제방식(대)'] = df['Marketplace'].map({'PC쇼핑몰':'일반구매', '모바일웹':'일반구매', '모바일앱':'일반구매', '네이버 페이':'네이버페이'})
+        df['Payment_Method_1'] = df['Marketplace'].map({'PC쇼핑몰':'일반구매', '모바일웹':'일반구매', '모바일앱':'일반구매', '네이버 페이':'네이버페이'})
         df['결제업체'] = df['결제업체'].astype('str')
-        df['결제방식(중)'] = df.apply(
+        df['Payment_Method_2'] = df.apply(
             lambda x: '적립금'
             if ((x['결제수단'] == '적립금') and (x['결제업체'] == 'nan'))
             else '네이버페이' if ((x['결제수단'] != '적립금') and (x['결제업체'] == 'nan'))
@@ -656,7 +660,7 @@ def Row_divide(df):
     df['Quantity_Divide'] = df['Quantity_Option'] / df['Quantity_Rows']
     df['Sales_Divide'] = df['Sales_Total'] / df['Quantity_Rows']
 
-    # Quantity_SKU 비중으로 Sales, Quantity 계산
+    # Quantity_SKU 비중으로 Sales, Quantity 계산 (현재 티타드만 반영됨)
     Sum_df = df.copy()
     Sum_df = Sum_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])["Quantity_SKU"]\
         .sum().reset_index()
