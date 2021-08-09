@@ -358,7 +358,7 @@ def main(Brand, start, end, update_all):
 
     df = Data_handler.get_Codes(Brd, df) # Style_Code, Color_Code
 
-    df = Data_handler.get_PaymentMethod(Brd, df) # Payment_Method_1, Payment_Method_2
+    df = Data_handler.get_PaymentMethod(Brd, df) # Order_Path, Payment_Method
 
     Option_df = Data_handler.get_Option_df(Brd) # 옵션매핑테이블 불러오기
 
@@ -377,7 +377,7 @@ def main(Brand, start, end, update_all):
     err_df = errData(err_df, Option_df, Brand, Brd)
 
     final_df = pd.concat([main_df, err_df], ignore_index=True)
-    final_df = Data_handler.Row_divide(final_df) # Quantity_divide, Sales_divide
+    final_df = Data_handler.Row_divide(final_df, Brd) # Quantity_divide, Sales_divide
 
     final_df = final_df[final_field(Brd)]
 

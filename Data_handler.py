@@ -190,17 +190,17 @@ def get_Codes(Brd, df):
 
 def get_PaymentMethod(Brd, df):
     '''
-    * Payment_Method_1 = 결제방식(대)
+    * Order_Path = 결제방식(대)
       - 주문경로 = 네이버 페이 이면 네이버페이, 그 외 일반구매
-    * Payment_Method_2 = 결제방식(중)
+    * Payment_Method = 결제방식(중)
       - 결제수단 = 적립금 이고 결제업체 = NULL 이면 적립금
       - 결제수단이 적립금이 아니고 결제업체 = NULL 이면 네이버페이
       - 그 외에는 결제업체 값과 동일
     '''
     if Brd == 'an':
-        df['Payment_Method_1'] = df['Marketplace'].map({'PC쇼핑몰':'일반구매', '모바일웹':'일반구매', '모바일앱':'일반구매', '네이버 페이':'네이버페이'})
+        df['Order_Path'] = df['Marketplace'].map({'PC쇼핑몰':'일반구매', '모바일웹':'일반구매', '모바일앱':'일반구매', '네이버 페이':'네이버페이'})
         df['결제업체'] = df['결제업체'].astype('str')
-        df['Payment_Method_2'] = df.apply(
+        df['Payment_Method'] = df.apply(
             lambda x: '적립금'
             if ((x['결제수단'] == '적립금') and (x['결제업체'] == 'nan'))
             else '네이버페이' if ((x['결제수단'] != '적립금') and (x['결제업체'] == 'nan'))
@@ -645,34 +645,37 @@ def simple_table(df):
     return simple_df
 
 
-def Row_divide(df):
+def Row_divide(df, Brd):
     """그룹 기준별 행 개수 세기"""
     df['상품옵션'] = df['상품옵션'].fillna('@') #merge 위해 null값 없애주기
 
-    Row_df = df.copy()
-    Row_df['Quantity_Rows'] = 1
-    Row_df = Row_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])['Quantity_Rows']\
-        .sum().reset_index()
+    if Brd == 'tt':
+        # Quantity_SKU 비중으로 Sales, Quantity 계산 (현재 티타드만 반영됨)
+        Sum_df = df.copy()
+        Sum_df = Sum_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])[
+            "Quantity_SKU"] \
+            .sum().reset_index()
+        Sum_df = Sum_df.rename(columns={'Quantity_SKU': 'Quantity_Sum_SKU'})
 
-    df = pd.merge(left=df, right=Row_df,
-                  on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
-                  how='left')
-    df['Quantity_Divide'] = df['Quantity_Option'] / df['Quantity_Rows']
-    df['Sales_Divide'] = df['Sales_Total'] / df['Quantity_Rows']
+        df = pd.merge(left=df, right=Sum_df,
+                      on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
+                      how='left')
+        df['Quantity_Divide_ratio'] = df['Quantity_SKU'] / df['Quantity_Sum_SKU']
+        df['Quantity_Divide_ratio'] = df['Quantity_Divide_ratio'].fillna(0)
+        df['Quantity_Divide'] = df['Quantity_Option'] * df['Quantity_Divide_ratio']
+        df['Sales_Divide'] = df['Sales_Total'] * df['Quantity_Divide_ratio']
 
-    # Quantity_SKU 비중으로 Sales, Quantity 계산 (현재 티타드만 반영됨)
-    Sum_df = df.copy()
-    Sum_df = Sum_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])["Quantity_SKU"]\
-        .sum().reset_index()
-    Sum_df = Sum_df.rename(columns = {'Quantity_SKU' : 'Quantity_Sum_SKU'})
+    else:
+        Row_df = df.copy()
+        Row_df['Quantity_Rows'] = 1
+        Row_df = Row_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])['Quantity_Rows']\
+            .sum().reset_index()
 
-    df = pd.merge(left=df, right = Sum_df,
-                  on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
-                  how='left')
-    df['Quantity_Divide_ratio'] = df['Quantity_SKU'] / df['Quantity_Sum_SKU']
-    df['Quantity_Divide_ratio']=df['Quantity_Divide_ratio'].fillna(0)
-    df['Quantity_Divide'] = df['Quantity_Option'] * df['Quantity_Divide_ratio']
-    df['Sales_Divide'] = df['Sales_Total'] * df['Quantity_Divide_ratio']
+        df = pd.merge(left=df, right=Row_df,
+                      on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
+                      how='left')
+        df['Quantity_Divide'] = df['Quantity_Option'] / df['Quantity_Rows']
+        df['Sales_Divide'] = df['Sales_Total'] / df['Quantity_Rows']
 
     return df
 
