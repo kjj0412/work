@@ -193,6 +193,7 @@ def final_field(Brd):
             # 'Item_Option',
             # 'Pre_Item_Option',
             # 'Cur_Item_Option',
+            'Product_Name', # 추가됨
             'SKU',
             'Pre_SKU',
             'Cur_SKU',

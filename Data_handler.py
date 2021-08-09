@@ -210,6 +210,20 @@ def get_PaymentMethod(Brd, df):
         pass
     return df
 
+# def get_Product_Name(Brd, df):
+#     '''
+#     Product_Name : 안다르 주문상품명 열
+#
+#     '''
+#
+#     if Brd == 'an':
+#         ~~
+#
+#     else:
+#         pass
+#     return df
+
+
 def get_Option_df(Brd):
     '''
     * DB에서 옵션매핑 테이블 가져오기
@@ -649,6 +663,16 @@ def Row_divide(df, Brd):
     """그룹 기준별 행 개수 세기"""
     df['상품옵션'] = df['상품옵션'].fillna('@') #merge 위해 null값 없애주기
 
+    Row_df = df.copy()
+    Row_df['Quantity_Rows'] = 1
+    Row_df = Row_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])[
+        'Quantity_Rows'] \
+        .sum().reset_index()
+
+    df = pd.merge(left=df, right=Row_df,
+                  on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
+                  how='left')
+
     if Brd == 'tt':
         # Quantity_SKU 비중으로 Sales, Quantity 계산 (현재 티타드만 반영됨)
         Sum_df = df.copy()
@@ -666,14 +690,6 @@ def Row_divide(df, Brd):
         df['Sales_Divide'] = df['Sales_Total'] * df['Quantity_Divide_ratio']
 
     else:
-        Row_df = df.copy()
-        Row_df['Quantity_Rows'] = 1
-        Row_df = Row_df.groupby(['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'])['Quantity_Rows']\
-            .sum().reset_index()
-
-        df = pd.merge(left=df, right=Row_df,
-                      on=['Date_', 'Phone_Number', 'Orderid', 'Unused_Data', '주문상품명', '상품품목코드', '상품옵션'],
-                      how='left')
         df['Quantity_Divide'] = df['Quantity_Option'] / df['Quantity_Rows']
         df['Sales_Divide'] = df['Sales_Total'] / df['Quantity_Rows']
 

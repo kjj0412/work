@@ -379,6 +379,7 @@ def main(Brand, start, end, update_all):
     final_df = pd.concat([main_df, err_df], ignore_index=True)
     final_df = Data_handler.Row_divide(final_df, Brd) # Quantity_divide, Sales_divide
 
+    final_df = final_df.rename(columns={'주문상품명':'Product_Name'})
     final_df = final_df[final_field(Brd)]
 
     # final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
@@ -389,8 +390,8 @@ def main(Brand, start, end, update_all):
         del_data('andar', 'tb_salesrp_sku_' + Brd, del_query)
         insert_data(final_df, 'andar', 'tb_salesrp_sku_' + Brd)
     else:
-        del_data('salesrp', 'tb_salesrp_sku_' + Brd + '_edited', del_query)
-        insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd + '_edited')
+        del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
+        insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
 
     # CrossSale RD 생성 - 핑거수트, 안다르는 제외
     if Brand == '핑거수트' or Brand == '안다르':
@@ -438,7 +439,7 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    main('안다르', start=20, end=0, update_all=False)
+    main('안다르', start=10, end=0, update_all=False)
     # main('핑거수트', start=9000, end=0, update_all=True)
 
     # for Brand in ['유리카', '클럭', '몽제', '티타드']:
