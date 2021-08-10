@@ -211,22 +211,22 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    if Brd == 'an':
-        del_data('andar', 'tb_salesrp_simple', del_query)
-        insert_data(simple_df, 'andar', 'tb_salesrp_simple')
-    else:
-        del_data('salesrp', 'tb_salesrp_simple', del_query)
-        insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
+    # if Brd == 'an':
+    #     del_data('andar', 'tb_salesrp_simple', del_query)
+    #     insert_data(simple_df, 'andar', 'tb_salesrp_simple')
+    # else:
+    #     del_data('salesrp', 'tb_salesrp_simple', del_query)
+    #     insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(Brd, df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    if Brd == 'an':
-        del_data('andar', 'tb_salesrp_mapnull_' + Brd, '')
-        insert_data(NoMapping, 'andar', 'tb_salesrp_mapnull_' + Brd)
-    else:
-        del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-        insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    # if Brd == 'an':
+    #     del_data('andar', 'tb_salesrp_mapnull_' + Brd, '')
+    #     insert_data(NoMapping, 'andar', 'tb_salesrp_mapnull_' + Brd)
+    # else:
+    #     del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+    #     insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -382,16 +382,16 @@ def main(Brand, start, end, update_all):
     final_df = final_df.rename(columns={'주문상품명':'Product_Name'})
     final_df = final_df[final_field(Brd)]
 
-    # final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
+    final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    if Brd == 'an':
-        del_data('andar', 'tb_salesrp_sku_' + Brd, del_query)
-        insert_data(final_df, 'andar', 'tb_salesrp_sku_' + Brd)
-    else:
-        del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
-        insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
+    # if Brd == 'an':
+    #     del_data('andar', 'tb_salesrp_sku_' + Brd, del_query)
+    #     insert_data(final_df, 'andar', 'tb_salesrp_sku_' + Brd)
+    # else:
+    #     del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
+    #     insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
 
     # CrossSale RD 생성 - 핑거수트, 안다르는 제외
     if Brand == '핑거수트' or Brand == '안다르':
@@ -423,13 +423,13 @@ def main(Brand, start, end, update_all):
         elif update_all == True:
             Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
 
-        del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-        insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
-
-        Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
-        Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-        del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
-        insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
+        # del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
+        #
+        # Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
+        # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
+        # del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
+        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":
@@ -439,7 +439,7 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    main('안다르', start=10, end=0, update_all=False)
+    main('안다르', start=9000, end=0, update_all=True)
     # main('핑거수트', start=9000, end=0, update_all=True)
 
     # for Brand in ['유리카', '클럭', '몽제', '티타드']:

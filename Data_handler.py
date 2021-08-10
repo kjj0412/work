@@ -171,17 +171,43 @@ def get_Codes(Brd, df):
         df['Product_Code'] = df['주문상품명(세트상품 포함)'].apply(lambda x: Regex.findall(str(x)))  # 코드가 리스트로 들어감, 대괄호 중괄호 모두 들어옴
         df['Product_Code'] = df['Product_Code'].apply(lambda x: re.sub('[\[\]\(\)\']', '', str(x)) if len(x) > 0 else '구분불가')
 
-        # 행분리
-        df = tidy_split(df, 'Product_Code', sep=',')
-        df['Product_Code'] = df['Product_Code'].apply(lambda x:x.strip())
+        # Product_Code 가 구분불가인 경우
+        df_nocode = df.loc[df.Product_Code=='구분불가']
 
-        # Style code와 color code 분리
-        df['Style_Code'] = df['Product_Code'].apply(
+
+        # 1) 옵션매핑 테이블 불러오기
+        Option_df = datalist('andar', 'prdtinfo', "")
+        Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier', 'Category1', 'Category2', 'Category3', 'Prime_Cost']
+        Option_df = Option_df[['주문상품명', 'Style_Code']]
+        Option_df = Option_df.drop_duplicates()
+
+        # 2) 상품명 기준 Style_Code 매핑
+        # Prdname_list = ','.join(df_nocode.주문상품명.tolist())
+        # df_nocode['Style_Code'] = df_nocode.apply(lambda x: Option_df.loc[Style_Code] if (x['주문상품명'] in Prdname_list) else ('구분불가'))
+        df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'])
+
+        # 3) Color_Code는 빈 열로 추가
+        df_nocode['Color_Code'] = '구분불가'
+
+
+        # Product_Code가 있는 경우
+        df_yescode = df.loc[df.Product_Code != '구분불가']
+
+        # 1) 행분리
+        df_yescode = tidy_split(df_yescode, 'Product_Code', sep=',')
+        df_yescode['Product_Code'] = df_yescode['Product_Code'].apply(lambda x:x.strip())
+
+        # 2) Style code와 color code 분리
+        df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
             lambda x: x if x == '구분불가' else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
                 x.split('-')[0]) == 4 else x)
-        df['Color_Code'] = df['Product_Code'].apply(
+        df_yescode['Color_Code'] = df_yescode['Product_Code'].apply(
             lambda x: x if x == '구분불가' else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
                 x.split('-')[0]) == 4 else x)
+
+        # 3) 결합
+        df = pd.concat([df_yescode, df_nocode])
+
     else:
         pass
 
@@ -209,20 +235,6 @@ def get_PaymentMethod(Brd, df):
     else:
         pass
     return df
-
-# def get_Product_Name(Brd, df):
-#     '''
-#     Product_Name : 안다르 주문상품명 열
-#
-#     '''
-#
-#     if Brd == 'an':
-#         ~~
-#
-#     else:
-#         pass
-#     return df
-
 
 def get_Option_df(Brd):
     '''
@@ -279,7 +291,12 @@ def SKU_Mapping(Brd, df, Option_df):
     같은 주문상품명&상품옵션에 대해 SKU가 여러개 들어있는 경우 left outer join되어 행이 늘어남
     """
     if Brd == 'an':
+        # 안다르일 경우 Style_Code를 SKU에 사용
         df['SKU']=df.Style_Code
+
+        # Style_Code가 구분불가인 경우 상품명 기준으로 매핑해와서 넣기
+
+
         df['Quantity_Bundle'] = 1 #quantity_bundle이 안다르는 옵션매핑에서 들어오지 않음
         df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
     else:
