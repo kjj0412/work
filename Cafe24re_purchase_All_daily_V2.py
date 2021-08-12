@@ -221,12 +221,12 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     SKU_df = Data_handler.SKU_Mapping(Brd, df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    # if Brd == 'an':
-    #     del_data('andar', 'tb_salesrp_mapnull_' + Brd, '')
-    #     insert_data(NoMapping, 'andar', 'tb_salesrp_mapnull_' + Brd)
-    # else:
-    #     del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-    #     insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    if Brd == 'an':
+        del_data('andar', 'tb_salesrp_mapnull_' + Brd, '')
+        insert_data(NoMapping, 'andar', 'tb_salesrp_mapnull_' + Brd)
+    else:
+        del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
+        insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -385,7 +385,7 @@ def main(Brand, start, end, update_all):
     final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
     print(final_df.shape)
 
-    del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
+    # del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
     # if Brd == 'an':
     #     del_data('andar', 'tb_salesrp_sku_' + Brd, del_query)
     #     insert_data(final_df, 'andar', 'tb_salesrp_sku_' + Brd)

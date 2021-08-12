@@ -171,9 +171,14 @@ def get_Codes(Brd, df):
         df['Product_Code'] = df['주문상품명(세트상품 포함)'].apply(lambda x: Regex.findall(str(x)))  # 코드가 리스트로 들어감, 대괄호 중괄호 모두 들어옴
         df['Product_Code'] = df['Product_Code'].apply(lambda x: re.sub('[\[\]\(\)\']', '', str(x)) if len(x) > 0 else '구분불가')
 
+        # 예외처리
+        df = df.drop(df[df.Product_Code == 'S-M'].index) # product 코드 아닌데 추출된 경우는 제외
+        df.loc[df.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040'
+        df.loc[df.Product_Code == 'testAJF8L-22BLK', 'Product_Code'] = 'AJF8L-22BLK'
+        df.loc[df.Product_Code == 'testAJF8L-22GRY', 'Product_Code'] = 'AJF8L-22GRY'
+
         # Product_Code 가 구분불가인 경우
         df_nocode = df.loc[df.Product_Code=='구분불가']
-
 
         # 1) 옵션매핑 테이블 불러오기
         Option_df = datalist('andar', 'prdtinfo', "")
@@ -182,8 +187,6 @@ def get_Codes(Brd, df):
         Option_df = Option_df.drop_duplicates()
 
         # 2) 상품명 기준 Style_Code 매핑
-        # Prdname_list = ','.join(df_nocode.주문상품명.tolist())
-        # df_nocode['Style_Code'] = df_nocode.apply(lambda x: Option_df.loc[Style_Code] if (x['주문상품명'] in Prdname_list) else ('구분불가'))
         df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'])
 
         # 3) Color_Code는 빈 열로 추가
@@ -198,11 +201,13 @@ def get_Codes(Brd, df):
         df_yescode['Product_Code'] = df_yescode['Product_Code'].apply(lambda x:x.strip())
 
         # 2) Style code와 color code 분리
+        errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01']) # Product_Code와 Style_Code가 같은 경우
+
         df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
-            lambda x: x if x == '구분불가' else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
+            lambda x: x if x == '구분불가' or x in errcode_list else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
                 x.split('-')[0]) == 4 else x)
         df_yescode['Color_Code'] = df_yescode['Product_Code'].apply(
-            lambda x: x if x == '구분불가' else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
+            lambda x: x if x == '구분불가' or x in errcode_list else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
                 x.split('-')[0]) == 4 else x)
 
         # 3) 결합
@@ -211,6 +216,7 @@ def get_Codes(Brd, df):
     else:
         pass
 
+    df.to_csv('구분불가.csv', )
     return df
 
 
