@@ -172,8 +172,6 @@ def get_Codes(Brd, df):
         df['Product_Code'] = df['Product_Code'].apply(lambda x: re.sub('[\[\]\(\)\']', '', str(x)) if len(x) > 0 else '구분불가')
 
         # 예외처리
-        df = df.drop(df[df.Product_Code == 'S-M'].index) # product 코드 아닌데 추출된 경우는 제외
-        df.loc[df.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040'
         df.loc[df.Product_Code == 'testAJF8L-22BLK', 'Product_Code'] = 'AJF8L-22BLK'
         df.loc[df.Product_Code == 'testAJF8L-22GRY', 'Product_Code'] = 'AJF8L-22GRY'
 
@@ -192,7 +190,6 @@ def get_Codes(Brd, df):
         # 3) Color_Code는 빈 열로 추가
         df_nocode['Color_Code'] = '구분불가'
 
-
         # Product_Code가 있는 경우
         df_yescode = df.loc[df.Product_Code != '구분불가']
 
@@ -200,9 +197,12 @@ def get_Codes(Brd, df):
         df_yescode = tidy_split(df_yescode, 'Product_Code', sep=',')
         df_yescode['Product_Code'] = df_yescode['Product_Code'].apply(lambda x:x.strip())
 
-        # 2) Style code와 color code 분리
-        errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01']) # Product_Code와 Style_Code가 같은 경우
+        # 2) 예외처리
+        df_yescode = df_yescode.drop(df_yescode[df_yescode.Product_Code == 'S-M'].index)  # product 코드 아닌데 추출된 경우는 제외
+        df_yescode.loc[df_yescode.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040' # Product_Code 잘못나온 경우 수정
+        errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01', 'RVP-0040'])  # Product_Code와 Style_Code가 같은 경우 처리
 
+        # 3) Style code와 color code 분리
         df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
             lambda x: x if x == '구분불가' or x in errcode_list else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
                 x.split('-')[0]) == 4 else x)
@@ -210,13 +210,12 @@ def get_Codes(Brd, df):
             lambda x: x if x == '구분불가' or x in errcode_list else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
                 x.split('-')[0]) == 4 else x)
 
-        # 3) 결합
+        # 4) 결합
         df = pd.concat([df_yescode, df_nocode])
 
     else:
         pass
 
-    df.to_csv('구분불가.csv', )
     return df
 
 
@@ -279,6 +278,11 @@ def Option_Mapping(Brd, df, Option_df):
         Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
         df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
         df[unique_cols] = df[unique_cols].fillna('@')
+
+        # 대카테고리, 소카테고리 불필요 단어 제거
+        df['Category1'] = df['Category1'].apply(lambda x: x.replace('의류','') if '의류' in x else x)
+        df['Category3'] = df['Category3'].apply(lambda x: x.replace('티셔츠','') if '티셔츠' in x else x)
+
     else:
         if Brd == 'fs':
             unique_cols = ['SKU_Code', 'Item', 'Shape', 'Lineup', 'Collection']
@@ -290,6 +294,54 @@ def Option_Mapping(Brd, df, Option_df):
         df[unique_cols] = df[unique_cols].fillna('@')
 
     return df
+
+
+def get_Cur_Category(Brd, SKU_df):
+    '''
+    Cur_Category : 해당 구매건의 대&소카테고리 조합. 안다르 크로스세일 계산용 변수
+    1. 대카테고리=ACC -> Cur_Category=ACC 로 통일
+    2. 대카테고리=기타 -> Cur_Category=기타 로 통일
+    '''
+
+    if Brd == 'an':
+        Cur_Category_df = SKU_df[['Date_', 'Phone_Number', 'Category1', 'Category3', 'Sequence']]
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Category1'] + Cur_Category_df['Category3']
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x
+                                                                                else '기타' if '기타' in x else x)
+        Cur_Category_df = Cur_Category_df.drop(columns=['Category1', 'Category3'])
+        Cur_Category_df = Cur_Category_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x: str(sorted(set(x))))
+
+        Cur_Category_df = Cur_Category_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        SKU_df = pd.merge(left=SKU_df, right=Cur_Category_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+
+    else:
+        pass
+    return SKU_df
+
+
+def get_Cur_Shape_Lineup(Brd, SKU_df):
+    '''
+    Cur_Shape_Lineup : 해당 구매건의 Shape&Lineup 조합. 핑거수트 크로스세일 및 핑거수트 Interval_Days_SKU 계산용 변수
+    '''
+
+    if Brd == 'fs':
+        Cur_Category_df = SKU_df[['Date_', 'Phone_Number', 'Category1', 'Category3', 'Sequence']]
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Category1']+' '+Cur_Category_df['Category3']
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x
+                                                                                else '기타' if '기타' in x else x)
+        Cur_Category_df = Cur_Category_df.drop(columns=['Category1', 'Category3'])
+        Cur_Category_df = Cur_Category_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x: str(sorted(set(x))))
+
+        Cur_Category_df = Cur_Category_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        SKU_df = pd.merge(left=SKU_df, right=Cur_Category_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+
+    else:
+        pass
+    return SKU_df
+
+
 
 
 def SKU_Mapping(Brd, df, Option_df):
@@ -557,7 +609,7 @@ def get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df):
 
     return SKU_df
 
-#### 신규
+
 def Sequence_SKU(Brd, SKU_df):
     '''
     * 이번 기간 데이터에서 Phone_Number, SKU별 Sequence의 순서 매기기 (Sequence_SKU_new)

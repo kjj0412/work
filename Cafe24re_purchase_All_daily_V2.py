@@ -169,10 +169,7 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
 
             Phonenum_part = "\'" + '\',\''.join(Phonenum_part.tolist()) + "\'"
             DB_past_query = 'Where Date_ < "{}" and Phone_Number in ({})'.format(start_date, Phonenum_part)
-            if Brd == 'an':
-                DB_past_df_part = datalist_past('andar', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
-            else:
-                DB_past_df_part = datalist_past('salesrp', 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
+            DB_past_df_part = datalist_past(schema, 'tb_salesrp_sku_' + Brd, cols, DB_past_query)
             DB_past_df = DB_past_df.append(DB_past_df_part)
 
         # 후처리
@@ -211,28 +208,22 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    # if Brd == 'an':
-    #     del_data('andar', 'tb_salesrp_simple', del_query)
-    #     insert_data(simple_df, 'andar', 'tb_salesrp_simple')
-    # else:
-    #     del_data('salesrp', 'tb_salesrp_simple', del_query)
-    #     insert_data(simple_df, 'salesrp', 'tb_salesrp_simple')
+    del_data(schema, 'tb_salesrp_simple', del_query)
+    insert_data(simple_df, schema, 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(Brd, df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    if Brd == 'an':
-        del_data('andar', 'tb_salesrp_mapnull_' + Brd, '')
-        insert_data(NoMapping, 'andar', 'tb_salesrp_mapnull_' + Brd)
-    else:
-        del_data('salesrp', 'tb_salesrp_mapnull_' + Brd, '')
-        insert_data(NoMapping, 'salesrp', 'tb_salesrp_mapnull_' + Brd)
+    del_data(schema, 'tb_salesrp_mapnull_' + Brd, '')
+    insert_data(NoMapping, schema, 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
     SKU_df = Data_handler.Cur_SKU_list(SKU_df) # Cur_SKU
 
     SKU_df = Data_handler.Option_SKU_list(SKU_df) # Option_SKU
+
+    SKU_df = Data_handler.get_Cur_Category(Brd, SKU_df) # Cur_Category
 
     SKU_df = Data_handler.get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df) # SKU별 마지막 구매날짜, 구매회차 lookup
 
@@ -265,6 +256,7 @@ def errData(df, Option_df, Brand, Brd):
     df['Interval_Days_SKU'] = ""
     df['Pre_SKU'] = ""
     df['Cur_SKU'] = ""
+    df['Cur_Category'] = ""
     df['Sequence_SKU'] = ""
 
     if Brd != 'fs' and Brd != 'an':
@@ -291,6 +283,8 @@ def main(Brand, start, end, update_all):
     start_date = (datetime.datetime.now() - datetime.timedelta(days=start)).strftime('%Y-%m-%d')
     end_date = (datetime.datetime.now() - datetime.timedelta(days=end)).strftime('%Y-%m-%d')
     report_date = (pd.to_datetime(end_date) - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+    global schema
+    schema = "salesrp"
 
     if Brand == '몽제':
         Brd = "mz"
@@ -310,6 +304,7 @@ def main(Brand, start, end, update_all):
     elif Brand == '안다르':
         Brd = "an"
         input_folder = "andar"
+        schema = "andar"
 
     print(Brd, start_date, report_date)
 
@@ -330,11 +325,6 @@ def main(Brand, start, end, update_all):
     # 전체 업데이트 하는 경우
     elif update_all == True:
         df = pd.read_csv(Brand+'_수기인풋전체.csv', encoding='UTF-8')
-
-        ## 중복된 케이스 따로 추출
-        duplicated = df.duplicated(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'])
-        duplicated.to_csv(Brd + '_중복케이스.csv', encoding='utf-8-sig', index=False)
-
         df = df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
 
         # 안다르 헤더명 조정
@@ -385,28 +375,26 @@ def main(Brand, start, end, update_all):
     final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
     print(final_df.shape)
 
-    # del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    # if Brd == 'an':
-    #     del_data('andar', 'tb_salesrp_sku_' + Brd, del_query)
-    #     insert_data(final_df, 'andar', 'tb_salesrp_sku_' + Brd)
-    # else:
-    #     del_data('salesrp', 'tb_salesrp_sku_' + Brd, del_query)
-    #     insert_data(final_df, 'salesrp', 'tb_salesrp_sku_' + Brd)
+    del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
+    del_data(schema, 'tb_salesrp_sku_' + Brd, del_query)
+    insert_data(final_df, schema, 'tb_salesrp_sku_' + Brd)
 
-    # CrossSale RD 생성 - 핑거수트, 안다르는 제외
-    if Brand == '핑거수트' or Brand == '안다르':
+    # CrossSale RD 생성 - 핑거수트는 제외
+    if Brand == '핑거수트':
         pass
     else:
         if Brand == '유리카':
             value = 'SKU'
         elif Brand == '티타드':
             value = 'Cur_SKU'
+        elif Brand == '안다르':
+            value = 'Cur_Category'
         else:
             value = 'Item_Option'
 
         # 부분 업데이트 하는 경우
         if update_all == False:
-            Past_Cross_df = datalist('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+            Past_Cross_df = datalist(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
             Past_Cross_df = Past_Cross_df.drop(columns=0)
             Past_Cross_df.columns = ['Brand', 'Phone_Number', 'First_Purchase_Date', 'Sequence', 'Product']
 
@@ -423,13 +411,13 @@ def main(Brand, start, end, update_all):
         elif update_all == True:
             Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
 
-        # del_data('salesrp', 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_temp')
-        #
-        # Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
+        del_data(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+        insert_data(Cross_df, schema, 'tb_salesrp_cross_temp')
+
+        Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
         # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-        # del_data('salesrp', 'tb_salesrp_cross_' + Brd, "")
-        # insert_data(Cross_df, 'salesrp', 'tb_salesrp_cross_' + Brd)
+        del_data(schema, 'tb_salesrp_cross_' + Brd, "")
+        insert_data(Cross_df, schema, 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":

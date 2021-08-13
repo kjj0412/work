@@ -66,6 +66,7 @@ def field_sorting(Brd):
             'SKU',
             'Pre_SKU',
             'Cur_SKU',
+            'Cur_Category', # 추가됨
             'Option_SKU',
             # 'Landing',
             'Coupon_Name',
@@ -197,6 +198,7 @@ def final_field(Brd):
             'SKU',
             'Pre_SKU',
             'Cur_SKU',
+            'Cur_Category',  # 추가됨
             'Option_SKU',
             'Style_Code',  # 추가됨
             'Color_Code',  # 추가됨
