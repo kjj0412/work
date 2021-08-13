@@ -225,6 +225,8 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
 
     SKU_df = Data_handler.get_Cur_Category(Brd, SKU_df) # Cur_Category
 
+    SKU_df = Data_handler.get_Cur_Shape_Lineup(Brd, SKU_df) # Cur_Shape_Lineup
+
     SKU_df = Data_handler.get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df) # SKU별 마지막 구매날짜, 구매회차 lookup
 
     SKU_df = Data_handler.Sequence_SKU(Brd, SKU_df) # Sequence_SKU
@@ -257,6 +259,7 @@ def errData(df, Option_df, Brand, Brd):
     df['Pre_SKU'] = ""
     df['Cur_SKU'] = ""
     df['Cur_Category'] = ""
+    df['Cur_Shape_Lineup'] = ""
     df['Sequence_SKU'] = ""
 
     if Brd != 'fs' and Brd != 'an':
@@ -379,45 +382,44 @@ def main(Brand, start, end, update_all):
     del_data(schema, 'tb_salesrp_sku_' + Brd, del_query)
     insert_data(final_df, schema, 'tb_salesrp_sku_' + Brd)
 
-    # CrossSale RD 생성 - 핑거수트는 제외
+    # CrossSale RD 생성
     if Brand == '핑거수트':
-        pass
+        value = 'Cur_Shape_Lineup'
+    elif Brand == '유리카':
+        value = 'SKU'
+    elif Brand == '티타드':
+        value = 'Cur_SKU'
+    elif Brand == '안다르':
+        value = 'Cur_Category'
     else:
-        if Brand == '유리카':
-            value = 'SKU'
-        elif Brand == '티타드':
-            value = 'Cur_SKU'
-        elif Brand == '안다르':
-            value = 'Cur_Category'
-        else:
-            value = 'Item_Option'
+        value = 'Item_Option'
 
-        # 부분 업데이트 하는 경우
-        if update_all == False:
-            Past_Cross_df = datalist(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-            Past_Cross_df = Past_Cross_df.drop(columns=0)
-            Past_Cross_df.columns = ['Brand', 'Phone_Number', 'First_Purchase_Date', 'Sequence', 'Product']
+    # 부분 업데이트 하는 경우
+    if update_all == False:
+        Past_Cross_df = datalist(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+        Past_Cross_df = Past_Cross_df.drop(columns=0)
+        Past_Cross_df.columns = ['Brand', 'Phone_Number', 'First_Purchase_Date', 'Sequence', 'Product']
 
-            Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
-            Cross_df = pd.concat([Past_Cross_df, Cross_df], ignore_index=True)
-            Cross_df = Cross_df.astype({'Phone_Number' : str,
-                                        'First_Purchase_Date' : str,
-                                        'Sequence' : float,
-                                        'Product' : str})
-            Cross_df = Cross_df.sort_values(by=['Brand', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
-            Cross_df = Cross_df.drop_duplicates(['Phone_Number', 'Sequence'], keep='last')
+        Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
+        Cross_df = pd.concat([Past_Cross_df, Cross_df], ignore_index=True)
+        Cross_df = Cross_df.astype({'Phone_Number' : str,
+                                    'First_Purchase_Date' : str,
+                                    'Sequence' : float,
+                                    'Product' : str})
+        Cross_df = Cross_df.sort_values(by=['Brand', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        Cross_df = Cross_df.drop_duplicates(['Phone_Number', 'Sequence'], keep='last')
 
-        # 전체 업데이트 하는 경우
-        elif update_all == True:
-            Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
+    # 전체 업데이트 하는 경우
+    elif update_all == True:
+        Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
 
-        del_data(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-        insert_data(Cross_df, schema, 'tb_salesrp_cross_temp')
+    del_data(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+    insert_data(Cross_df, schema, 'tb_salesrp_cross_temp')
 
-        Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
-        # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-        del_data(schema, 'tb_salesrp_cross_' + Brd, "")
-        insert_data(Cross_df, schema, 'tb_salesrp_cross_' + Brd)
+    Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
+    # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
+    del_data(schema, 'tb_salesrp_cross_' + Brd, "")
+    insert_data(Cross_df, schema, 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":

@@ -299,15 +299,15 @@ def Option_Mapping(Brd, df, Option_df):
 def get_Cur_Category(Brd, SKU_df):
     '''
     Cur_Category : 해당 구매건의 대&소카테고리 조합. 안다르 크로스세일 계산용 변수
-    1. 대카테고리=ACC -> Cur_Category=ACC 로 통일
-    2. 대카테고리=기타 -> Cur_Category=기타 로 통일
+    대카테고리=ACC -> Cur_Category=ACC 로 통일
     '''
 
     if Brd == 'an':
         Cur_Category_df = SKU_df[['Date_', 'Phone_Number', 'Category1', 'Category3', 'Sequence']]
         Cur_Category_df['Cur_Category'] = Cur_Category_df['Category1'] + Cur_Category_df['Category3']
-        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x
-                                                                                else '기타' if '기타' in x else x)
+        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x else x)
+        # Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x
+        #                                                                         else '기타' if '기타' in x else x)
         Cur_Category_df = Cur_Category_df.drop(columns=['Category1', 'Category3'])
         Cur_Category_df = Cur_Category_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
         Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x: str(sorted(set(x))))
@@ -326,22 +326,18 @@ def get_Cur_Shape_Lineup(Brd, SKU_df):
     '''
 
     if Brd == 'fs':
-        Cur_Category_df = SKU_df[['Date_', 'Phone_Number', 'Category1', 'Category3', 'Sequence']]
-        Cur_Category_df['Cur_Category'] = Cur_Category_df['Category1']+' '+Cur_Category_df['Category3']
-        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x
-                                                                                else '기타' if '기타' in x else x)
-        Cur_Category_df = Cur_Category_df.drop(columns=['Category1', 'Category3'])
-        Cur_Category_df = Cur_Category_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
-        Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x: str(sorted(set(x))))
+        Cur_SL_df = SKU_df[['Date_', 'Phone_Number', 'Shape', 'Lineup', 'Sequence']]
+        Cur_SL_df['Cur_Shape_Lineup'] = Cur_SL_df['Shape'] + Cur_SL_df['Lineup']
+        Cur_SL_df = Cur_SL_df.drop(columns=['Shape', 'Lineup'])
 
-        Cur_Category_df = Cur_Category_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
-        SKU_df = pd.merge(left=SKU_df, right=Cur_Category_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+        Cur_SL_df = Cur_SL_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        Cur_SL_df['Cur_Shape_Lineup'] = Cur_SL_df['Cur_Shape_Lineup'].apply(lambda x: str(sorted(set(x))))
+        Cur_SL_df = Cur_SL_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        SKU_df = pd.merge(left=SKU_df, right=Cur_SL_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
 
     else:
         pass
     return SKU_df
-
-
 
 
 def SKU_Mapping(Brd, df, Option_df):
@@ -351,10 +347,6 @@ def SKU_Mapping(Brd, df, Option_df):
     if Brd == 'an':
         # 안다르일 경우 Style_Code를 SKU에 사용
         df['SKU']=df.Style_Code
-
-        # Style_Code가 구분불가인 경우 상품명 기준으로 매핑해와서 넣기
-
-
         df['Quantity_Bundle'] = 1 #quantity_bundle이 안다르는 옵션매핑에서 들어오지 않음
         df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
     else:
@@ -787,7 +779,7 @@ def CrossItem_List(df, Brand, value):
     CrossItem_df = CrossItem_df.rename(columns={value: 'Product'})
 
     # Cur_SKU로 들어간 Product 열에서 SKU만 남기기
-    if value == 'Cur_SKU':
+    if value == 'Cur_SKU' or value == 'Cur_Shape_Lineup' or value == 'Cur_Category':
         CrossItem_df['Product'] = CrossItem_df.Product.apply(lambda x: re.sub('[\[\]\'\ \^0-9]', '', x))
 
     return CrossItem_df
@@ -806,9 +798,9 @@ def CrossItem_Pivot(df, Brand, value):
         for i in range(0, 5-max_sequence):
             CrossItem_df[float(max_sequence + i + 1)] = ''
 
-    # Cur_SKU로 들어가는 경우 행분리 하지 않음
+    # Cur_SKU/Cur_Category/Cur_Shape_Lineup 으로 들어가는 경우 행분리 하지 않음
     for i in [1.0, 2.0, 3.0, 4.0, 5.0]:
-        if Brand != '티타드':
+        if (Brand != '티타드') and (Brand != '안다르') and (Brand != '핑거수트'):
             CrossItem_df = tidy_split(CrossItem_df, i, sep=',')
         CrossItem_df[i] = CrossItem_df[i].replace('nan', '').fillna('')
 
