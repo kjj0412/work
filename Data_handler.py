@@ -781,8 +781,10 @@ def CrossItem_List(df, Brand, value):
     CrossItem_df = CrossItem_df.rename(columns={value: 'Product'})
 
     # Cur_SKU로 들어간 Product 열에서 SKU만 남기기
-    if value == 'Cur_SKU' or value == 'Cur_Shape_Lineup' or value == 'Cur_Category':
+    if value == 'Cur_SKU' or value == 'Cur_Shape_Lineup':
         CrossItem_df['Product'] = CrossItem_df.Product.apply(lambda x: re.sub('[\[\]\'\ \^0-9]', '', x))
+    elif value == 'Cur_Category':
+        CrossItem_df['Product'] = CrossItem_df.Product.apply(lambda x: re.sub('[\[\]\'\ ]', '', x))
 
     return CrossItem_df
 
