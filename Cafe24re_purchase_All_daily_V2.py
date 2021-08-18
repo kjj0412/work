@@ -148,6 +148,7 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     cols = 'Date_, Phone_Number, Broad_Repurchase_User, Unused_Data, Item_Option, SKU, Sequence, Sequence_SKU, Sequence_Broad, First_Purchase_Date, Quantity_SKU'
 
     if Brd == 'fs':
+        cols = cols + ', Shape, Lineup'
         cols = cols.replace("Item_Option, ", "")
     elif Brd == 'an':
         cols = cols.replace("Item_Option, ", "")
@@ -186,7 +187,7 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
         if Brd != 'an':
             DB_past_df = DB_past_df.rename(columns = { 'Sequence_SKU' : 'Last_Sequence_SKU' })
         if Brd == 'fs':
-            DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,0,'-']
+            DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,0,'-','-','-']
         elif Brd == 'an':
             DB_past_df.loc[0] = [0,'-','-','-','-',0,0,0,'-']
         else:
@@ -225,17 +226,17 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
 
     SKU_df = Data_handler.get_Cur_Category(Brd, SKU_df) # Cur_Category
 
-    SKU_df = Data_handler.get_Cur_Shape_Lineup(Brd, SKU_df) # Cur_Shape_Lineup
+    SKU_df = Data_handler.get_Cur_Shape_Lineup(Brd, SKU_df) # Cur_Shape_Lineup, Shape_Lineup
 
-    SKU_df = Data_handler.get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df) # SKU별 마지막 구매날짜, 구매회차 lookup
+    SKU_df = Data_handler.get_past_purchase_by_SKU(Brd, DB_past_df, SKU_df) # SKU별 마지막 구매날짜, 구매회차 lookup (핑거수트는 Shape_Lineup 기준)
 
     SKU_df = Data_handler.Sequence_SKU(Brd, SKU_df) # Sequence_SKU
 
     # Interval_Days_SKU
     if update_all == False:
-        SKU_df = Data_handler.Interval_days_SKU_14(SKU_df)
+        SKU_df = Data_handler.Interval_days_SKU_14(Brd, SKU_df)
     elif update_all == True:
-        SKU_df = Data_handler.Interval_days_SKU_all(SKU_df)
+        SKU_df = Data_handler.Interval_days_SKU_all(Brd, SKU_df)
 
     # SKU_df.to_csv(Brand + '_main_20일.csv', encoding='utf-8-sig', index=False)
     final_df = SKU_df[field_sorting(Brd)]
@@ -429,8 +430,8 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    main('안다르', start=9000, end=0, update_all=True)
-    # main('핑거수트', start=9000, end=0, update_all=True)
+    # main('안다르', start=30, end=0, update_all=False)
+    main('핑거수트', start=9000, end=0, update_all=True)
 
     # for Brand in ['유리카', '클럭', '몽제', '티타드']:
     #     try :
