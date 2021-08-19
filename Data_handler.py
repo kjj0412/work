@@ -138,6 +138,10 @@ def Item_Mapping(df, Brd):
         df['Landing'] = df.apply(lambda x: "@" if ('nan' in x['Landing']) else x['Landing'], axis=1)
         df['Item'] = df.apply(lambda x: "미니" if (x['Landing'] == "@") and (x['Brand'] == '클럭') else x['Item'], axis=1)
 
+        # 티타드 8/18 이전 16번 랜딩 매핑정보 수정
+        if Brd == 'tt':
+            df.loc[(df.Date_ < '2021-08-18') & (df.Landing == '16'), ('Item')] = '샴푸'
+
     return df
 
 
@@ -307,9 +311,6 @@ def get_Cur_Category(Brd, SKU_df):
         Cur_Category_df['Cur_Category'] = Cur_Category_df['Category1'] + Cur_Category_df['Category3']
         Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x else '기타' if '기타 기타' in x
                                                                                 else x)
-
-        # Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x : 'ACC' if 'ACC' in x
-        #                                                                         else '기타' if '기타' in x else x)
         Cur_Category_df = Cur_Category_df.drop(columns=['Category1', 'Category3'])
         Cur_Category_df = Cur_Category_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
         Cur_Category_df['Cur_Category'] = Cur_Category_df['Cur_Category'].apply(lambda x: str(sorted(set(x))))
@@ -675,7 +676,7 @@ def Interval_days_SKU_14(Brd, SKU_df):
     Interval_SKU_df = Interval_SKU_df.astype({'Interval_Days_SKU': str})
     Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df['Interval_Days_SKU'].str.replace(' days.*', '', regex=True)
     Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df['Interval_Days_SKU'].apply(lambda x: x.replace('NaT', ''))
-    Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df.apply(lambda x: "" if (x['SKU'] == "@") else x['Interval_Days_SKU'], axis=1)
+    Interval_SKU_df['Interval_Days_SKU'] = Interval_SKU_df.apply(lambda x: "" if (x[value] == "@") else x['Interval_Days_SKU'], axis=1)
 
     SKU_df =  SKU_df.drop(columns=Last_Date_value)
     Interval_SKU_df['Date_'] = Interval_SKU_df['Date_'].dt.strftime('%Y-%m-%d')
@@ -754,7 +755,7 @@ def simple_table(df):
     return simple_df
 
 
-def Row_divide(df, Brd):
+def Row_divide(Brd, df):
     """그룹 기준별 행 개수 세기"""
     df['상품옵션'] = df['상품옵션'].fillna('@') #merge 위해 null값 없애주기
 
@@ -790,6 +791,93 @@ def Row_divide(df, Brd):
 
     return df
 
+
+def add_rows(df):
+    '''
+    3. 한 행씩 돌면서 reflect_info 에 추가되는 행 저장
+    0) 공통으로 사용설명서와 리플렛 행 추가
+    1) cur_item에서 네일 개수 + 페디 개수 카운트
+    2) 0보다 큰 경우 그 개수를 quantity_sku로 갖는 프렙패드 플러스 행 추가 * 행 복사는 인덱스, loc 이용
+    3) 0인 경우 pass
+
+    **일자기준 추가할것**
+
+    '''
+
+    # 건수만큼 사용설명서 행 생성
+    reflet_info_1 = df.copy()
+    reflet_info_1.loc[:,('Set', 'Item', 'SKU_Code', 'SKU', 'Pre_SKU', 'Cur_SKU', 'Option_SKU', 'Shape',
+                      'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
+                      'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
+                      'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-010', '핑거수트 사용설명서(국문)',
+                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
+                                                         np.nan, 0, 1, 1, 1, 0, 0, 0]
+    # 건수만큼 리플렛 행 생성
+    reflet_info_2 = df.copy()
+    reflet_info_2.loc[:,('Set', 'Item', 'SKU_Code', 'SKU', 'Pre_SKU', 'Cur_SKU', 'Option_SKU', 'Shape',
+                      'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
+                      'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
+                      'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-009', '핑거수트 프렙패드 플러스 리플렛',
+                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
+                                                         np.nan, 0, 1, 1, 1, 0, 0, 0]
+    # 페디나 네일 구매한 건에 대해 프렙패드 행 생성
+    reflet_info_3 = df.loc[df.Cur_Item.str.contains('네일') | df.Cur_Item.str.contains('페디')]
+    reflet_info_3.loc[:,('Set', 'Item', 'SKU_Code', 'SKU', 'Pre_SKU', 'Cur_SKU', 'Option_SKU', 'Shape',
+                      'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
+                      'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
+                      'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-008', '프렙패드 플러스(2ea)',
+                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
+                                                         np.nan, 0, 1, 1, 1, 0, 0, 0]
+    reflet_info_3['Quantity_SKU'] = reflet_info_3.apply(lambda x: x.Cur_Item.count('네일') + x.Cur_Item.count('페디'), axis=1)
+
+    # 추가된 행 결합
+    reflet_info = pd.concat([reflet_info_1, reflet_info_2, reflet_info_3])
+
+    # Unused_Data 가공
+    reflet_info['Unused_Data'] = reflet_info.apply(lambda x: '일반' if '일반' in x.Cur_Unused_Data else x.Unused_Data, axis=1)
+
+    return reflet_info
+
+
+def add_reflet_info(Brd, final_df):
+    '''
+    핑거수트 리플렛 데이터 추가
+    1. cur_item 임시로 열 추가
+    2. cur_unused_data 임시로 열 추가
+    2. 주문번호, cur_item 기준 중복제거
+    3. 한 행씩 돌면서 reflect_info 에 추가되는 행 저장
+        0) 공통으로 사용설명서와 리플렛 행 추가
+        1) cur_item에서 네일 개수 + 페디 개수 카운트
+        2) 0보다 큰 경우 그 개수를 quantity_sku로 갖는 프렙패드 플러스 행 추가
+        3) 0인 경우 pass
+    기존 df에 reflect_info append 한 후 정렬
+    '''
+
+    if Brd == 'fs':
+        cur_item_df = final_df[['Date_', 'Phone_Number', 'Sequence', 'Item']]
+        cur_item_df = cur_item_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        cur_item_df['Item'] = cur_item_df['Item'].apply(lambda x: str(sorted(x)))
+        cur_item_df = cur_item_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        cur_item_df = cur_item_df.rename(columns={'Item': 'Cur_Item'})
+        df = pd.merge(left=final_df, right=cur_item_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+
+        cur_use_df = df[['Date_', 'Phone_Number', 'Sequence', 'Unused_Data']]
+        cur_use_df = cur_use_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        cur_use_df['Unused_Data'] = cur_use_df['Unused_Data'].apply(lambda x: str(sorted(x)))
+        cur_use_df = cur_use_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        cur_use_df = cur_use_df.rename(columns={'Unused_Data': 'Cur_Unused_Data'})
+        df = pd.merge(left=df, right=cur_use_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+
+        df = df.drop_duplicates(subset = ['Date_', 'Phone_Number', 'Sequence', 'Cur_Item'])
+        reflet_info = add_rows(df)
+        df = pd.concat([df, reflet_info])
+        final_df = df.drop(columns = ['Cur_Item', 'Cur_Unused_Data'])
+    else:
+        pass
+
+    return final_df
+
+
 def CrossItem_List(df, Brand, value):
     """
     크로스세일 RD용 - 번호별 회차별 구매아이템 list
@@ -814,6 +902,7 @@ def CrossItem_List(df, Brand, value):
 
     return CrossItem_df
 
+
 def CrossItem_Pivot(df, Brand, value):
     """
     크로스세일 RD용 - 피벗 & 행분리 가공
@@ -837,6 +926,7 @@ def CrossItem_Pivot(df, Brand, value):
     CrossItem_df.columns = ['Phone_Number', 'First_Purchase_Date', 'Item_1st', 'Item_2nd', 'Item_3rd', 'Item_4th', 'Item_5th']
 
     return CrossItem_df
+
 
 def tidy_split(df, column, sep='|', keep=False):
     """CrossItem 함수에서 쓰는 행분리 로직"""
