@@ -794,18 +794,14 @@ def Row_divide(Brd, df):
 
 def add_rows(df):
     '''
-    3. 한 행씩 돌면서 reflect_info 에 추가되는 행 저장
-    0) 공통으로 사용설명서와 리플렛 행 추가
-    1) cur_item에서 네일 개수 + 페디 개수 카운트
-    2) 0보다 큰 경우 그 개수를 quantity_sku로 갖는 프렙패드 플러스 행 추가 * 행 복사는 인덱스, loc 이용
-    3) 0인 경우 pass
-
-    **일자기준 추가할것**
-
+    0) 주문건당 사용설명서와 리플렛 행 각 1개씩 추가 : 6/23 주문건부터 적용
+    1) 주문건에 네일 or 페디가 있는 경우 네일/페디 제품 개수를 Quantity_SKU로 갖는 프렙패드 행 1개 추가 : 7/21 주문건부터 적용
     '''
 
+    df['Date_'] = pd.to_datetime(df['Date_'], format='%Y-%m-%d')
+
     # 건수만큼 사용설명서 행 생성
-    reflet_info_1 = df.copy()
+    reflet_info_1 = df.loc[df.Date_>'2021-06-22']
     reflet_info_1.loc[:,('Set', 'Item', 'SKU_Code', 'SKU', 'Pre_SKU', 'Cur_SKU', 'Option_SKU', 'Shape',
                       'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
                       'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
@@ -813,7 +809,7 @@ def add_rows(df):
                                                          np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
     # 건수만큼 리플렛 행 생성
-    reflet_info_2 = df.copy()
+    reflet_info_2 = df.loc[df.Date_>'2021-07-20']
     reflet_info_2.loc[:,('Set', 'Item', 'SKU_Code', 'SKU', 'Pre_SKU', 'Cur_SKU', 'Option_SKU', 'Shape',
                       'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
                       'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
@@ -821,13 +817,14 @@ def add_rows(df):
                                                          np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
     # 페디나 네일 구매한 건에 대해 프렙패드 행 생성
-    reflet_info_3 = df.loc[df.Cur_Item.str.contains('네일') | df.Cur_Item.str.contains('페디')]
+    reflet_info_3 = df.loc[(df.Cur_Item.str.contains('네일') | df.Cur_Item.str.contains('페디')) & (df.Date_>'2021-07-20')]
     reflet_info_3.loc[:,('Set', 'Item', 'SKU_Code', 'SKU', 'Pre_SKU', 'Cur_SKU', 'Option_SKU', 'Shape',
                       'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
                       'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
                       'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-008', '프렙패드 플러스(2ea)',
                                                          np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
+
     reflet_info_3['Quantity_SKU'] = reflet_info_3.apply(lambda x: x.Cur_Item.count('네일') + x.Cur_Item.count('페디'), axis=1)
 
     # 추가된 행 결합
@@ -870,8 +867,8 @@ def add_reflet_info(Brd, final_df):
 
         df = df.drop_duplicates(subset = ['Date_', 'Phone_Number', 'Sequence', 'Cur_Item'])
         reflet_info = add_rows(df)
-        df = pd.concat([df, reflet_info])
-        final_df = df.drop(columns = ['Cur_Item', 'Cur_Unused_Data'])
+        final_df = pd.concat([final_df, reflet_info])
+        final_df = final_df.drop(columns = ['Cur_Item', 'Cur_Unused_Data'])
     else:
         pass
 

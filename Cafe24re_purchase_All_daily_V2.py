@@ -373,7 +373,8 @@ def main(Brand, start, end, update_all):
     final_df = pd.concat([main_df, err_df], ignore_index=True)
     final_df = Data_handler.Row_divide(Brd, final_df) # Quantity_divide, Sales_divide
 
-    # final_df = Data_handler.add_reflet_info(Brd, final_df) # 리플렛 행 추가 (핑거수트)
+    final_df = Data_handler.add_reflet_info(Brd, final_df) # 리플렛 행 추가 (핑거수트)
+    final_df = final_df.sort_values(by=['Orderid', 'Sequence'], ascending=(True, True))
 
     final_df = final_df.rename(columns={'주문상품명':'Product_Name'})
     final_df = final_df[final_field(Brd)]
@@ -433,7 +434,7 @@ if __name__ == "__main__":
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     # main('안다르', start=30, end=0, update_all=False)
-    main('티타드', start=9000, end=0, update_all=True)
+    main('핑거수트', start=9000, end=0, update_all=True)
 
     # for Brand in ['유리카', '클럭', '몽제', '티타드']:
     #     try :
