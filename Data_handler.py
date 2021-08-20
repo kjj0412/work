@@ -794,8 +794,9 @@ def Row_divide(Brd, df):
 
 def add_rows(df):
     '''
-    0) 주문건당 사용설명서와 리플렛 행 각 1개씩 추가 : 6/23 주문건부터 적용
-    1) 주문건에 네일 or 페디가 있는 경우 네일/페디 제품 개수를 Quantity_SKU로 갖는 프렙패드 행 1개 추가 : 7/21 주문건부터 적용
+    주문건당 사은품 행 추가
+    1. 주문건당 사용설명서와 리플렛 행 각 1개씩 추가 : 6/23 주문건부터 적용
+    2. 주문건에 네일 or 페디가 있는 경우 네일/페디 제품 개수를 Quantity_SKU로 갖는 프렙패드 행 1개 추가 : 7/21 주문건부터 적용
     '''
 
     df['Date_'] = pd.to_datetime(df['Date_'], format='%Y-%m-%d')
@@ -839,34 +840,36 @@ def add_rows(df):
 def add_reflet_info(Brd, final_df):
     '''
     핑거수트 리플렛 데이터 추가
-    1. cur_item 임시로 열 추가
-    2. cur_unused_data 임시로 열 추가
+    1. cur_item : 구매건당 item 리스트 / cur_unused_data : 구매건당 unused_data 리스트
     2. 주문번호, cur_item 기준 중복제거
-    3. 한 행씩 돌면서 reflect_info 에 추가되는 행 저장
-        0) 공통으로 사용설명서와 리플렛 행 추가
-        1) cur_item에서 네일 개수 + 페디 개수 카운트
-        2) 0보다 큰 경우 그 개수를 quantity_sku로 갖는 프렙패드 플러스 행 추가
-        3) 0인 경우 pass
-    기존 df에 reflect_info append 한 후 정렬
+    3. reflet_info : 주문건당 추가되는 사은품 행 저장
+    4. 기존 df에 reflet_info append 한 후 정렬
     '''
 
     if Brd == 'fs':
-        cur_item_df = final_df[['Date_', 'Phone_Number', 'Sequence', 'Item']]
-        cur_item_df = cur_item_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        cur_item_df = final_df[['Date_', 'Orderid', 'Sequence', 'Item']]
+        cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Sequence']).agg(lambda x: list(x)).reset_index()
         cur_item_df['Item'] = cur_item_df['Item'].apply(lambda x: str(sorted(x)))
-        cur_item_df = cur_item_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        cur_item_df = cur_item_df.sort_values(by=['Date_', 'Orderid', 'Sequence'], ascending=(True, True, True))
         cur_item_df = cur_item_df.rename(columns={'Item': 'Cur_Item'})
-        df = pd.merge(left=final_df, right=cur_item_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+        df = pd.merge(left=final_df, right=cur_item_df, on=['Date_', 'Orderid', 'Sequence'], how='left')
 
-        cur_use_df = df[['Date_', 'Phone_Number', 'Sequence', 'Unused_Data']]
-        cur_use_df = cur_use_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        cur_use_df = df[['Date_', 'Orderid', 'Sequence', 'Unused_Data']]
+        cur_use_df = cur_use_df.groupby(['Date_', 'Orderid', 'Sequence']).agg(lambda x: list(x)).reset_index()
         cur_use_df['Unused_Data'] = cur_use_df['Unused_Data'].apply(lambda x: str(sorted(x)))
-        cur_use_df = cur_use_df.sort_values(by=['Date_', 'Phone_Number', 'Sequence'], ascending=(True, True, True))
+        cur_use_df = cur_use_df.sort_values(by=['Date_', 'Orderid', 'Sequence'], ascending=(True, True, True))
         cur_use_df = cur_use_df.rename(columns={'Unused_Data': 'Cur_Unused_Data'})
-        df = pd.merge(left=df, right=cur_use_df, on=['Date_', 'Phone_Number', 'Sequence'], how='left')
+        df = pd.merge(left=df, right=cur_use_df, on=['Date_', 'Orderid', 'Sequence'], how='left').reset_index()
 
-        df = df.drop_duplicates(subset = ['Date_', 'Phone_Number', 'Sequence', 'Cur_Item'])
-        reflet_info = add_rows(df)
+        # drop_duplicates에서 keep 옵션에 따라 특정 중복열 고유값이 남지 않는 이슈 처리
+        # df1 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='first')
+        # df2 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='last')
+        # df3 = pd.concat([df1, df2])
+        # df3 = df3.drop_duplicates()
+
+        df3 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='last')
+
+        reflet_info = add_rows(df3)
         final_df = pd.concat([final_df, reflet_info])
         final_df = final_df.drop(columns = ['Cur_Item', 'Cur_Unused_Data'])
     else:
