@@ -434,7 +434,7 @@ if __name__ == "__main__":
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     # main('안다르', start=30, end=0, update_all=False)
-    main('핑거수트', start=9000, end=0, update_all=True)
+    main('핑거수트', start=20, end=0, update_all=False)
 
 
     # for Brand in ['유리카', '클럭', '몽제', '티타드']:

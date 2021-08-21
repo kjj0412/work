@@ -807,7 +807,7 @@ def add_rows(df):
                       'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
                       'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
                       'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-010', '핑거수트 사용설명서(국문)',
-                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
+                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, 0,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
     # 건수만큼 리플렛 행 생성
     reflet_info_2 = df.loc[df.Date_>'2021-07-20']
@@ -815,7 +815,7 @@ def add_rows(df):
                       'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
                       'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
                       'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-009', '핑거수트 프렙패드 플러스 리플렛',
-                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
+                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, 0,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
     # 페디나 네일 구매한 건에 대해 프렙패드 행 생성
     reflet_info_3 = df.loc[(df.Cur_Item.str.contains('네일') | df.Cur_Item.str.contains('페디')) & (df.Date_>'2021-07-20')]
@@ -823,7 +823,7 @@ def add_rows(df):
                       'Lineup', 'Collection', 'Coupon_Name', 'Sequence_SKU', 'Interval_Days_SKU',
                       'Quantity_Option', 'Quantity_SKU', 'Quantity_Bundle', 'Quantity_Rows', 'Quantity_Divide',
                       'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-008', '프렙패드 플러스(2ea)',
-                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, np.nan,
+                                                         np.nan, np.nan, np.nan, '-', '-', '-', np.nan, 0,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
 
     reflet_info_3['Quantity_SKU'] = reflet_info_3.apply(lambda x: x.Cur_Item.count('네일') + x.Cur_Item.count('페디'), axis=1)
@@ -860,12 +860,6 @@ def add_reflet_info(Brd, final_df):
         cur_use_df = cur_use_df.sort_values(by=['Date_', 'Orderid', 'Sequence'], ascending=(True, True, True))
         cur_use_df = cur_use_df.rename(columns={'Unused_Data': 'Cur_Unused_Data'})
         df = pd.merge(left=df, right=cur_use_df, on=['Date_', 'Orderid', 'Sequence'], how='left').reset_index()
-
-        # drop_duplicates에서 keep 옵션에 따라 특정 중복열 고유값이 남지 않는 이슈 처리
-        # df1 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='first')
-        # df2 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='last')
-        # df3 = pd.concat([df1, df2])
-        # df3 = df3.drop_duplicates()
 
         df3 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='last')
 
