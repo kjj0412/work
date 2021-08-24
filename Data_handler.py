@@ -179,7 +179,7 @@ def get_Codes(Brd, df):
         df.loc[df.Product_Code == 'testAJF8L-22BLK', 'Product_Code'] = 'AJF8L-22BLK'
         df.loc[df.Product_Code == 'testAJF8L-22GRY', 'Product_Code'] = 'AJF8L-22GRY'
 
-        # Product_Code 가 구분불가인 경우
+        # 1. Product_Code 가 구분불가인 경우
         df_nocode = df.loc[df.Product_Code=='구분불가']
 
         # 1) 옵션매핑 테이블 불러오기
@@ -194,7 +194,7 @@ def get_Codes(Brd, df):
         # 3) Color_Code는 빈 열로 추가
         df_nocode['Color_Code'] = '구분불가'
 
-        # Product_Code가 있는 경우
+        # 2. Product_Code가 있는 경우
         df_yescode = df.loc[df.Product_Code != '구분불가']
 
         # 1) 행분리
@@ -214,7 +214,7 @@ def get_Codes(Brd, df):
             lambda x: x if x == '구분불가' or x in errcode_list else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
                 x.split('-')[0]) == 4 else x)
 
-        # 4) 결합
+        # 3. 결합
         df = pd.concat([df_yescode, df_nocode])
 
     else:
@@ -274,6 +274,7 @@ def Option_Mapping(Brd, df, Option_df):
     '''
     불러온 Option_df 정보를 구매정보에 매핑
     * 안다르 : Style_Code 기준으로 매핑
+    * 핑거수트 : 주문상품명, 상품옵션 기준으로 매핑, 단 사은품 매핑은 기간 기준으로 다르게 적용
     * 데일리앤코 : 주문상품명, 상품옵션 기준으로 매핑
     '''
 
@@ -290,12 +291,42 @@ def Option_Mapping(Brd, df, Option_df):
     else:
         if Brd == 'fs':
             unique_cols = ['SKU_Code', 'Item', 'Shape', 'Lineup', 'Collection']
+            Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
+            Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'SKU_Code'], keep='last')  # 매핑 중복기입 이슈 방지용, 핑거수트는 sku_code 다른경우 있음
+            df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+            df[unique_cols] = df[unique_cols].fillna('@')
         else:
             unique_cols = ['Item_Option']
-        Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
-        Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
-        df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-        df[unique_cols] = df[unique_cols].fillna('@')
+            Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
+            Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
+            df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+            df[unique_cols] = df[unique_cols].fillna('@')
+
+    # 핑거수트 사은품 매핑 기간별 처리
+    if Brd == 'fs':
+        # 사은품 옵션매핑 테이블 불러오기
+        Option_df2 = datalist('map', 'tb_map_primecost_option_fs2', "")
+        Option_df2.columns = ['idx', 'set_', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Start_date', 'End_date']
+        Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
+        Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-11', '%Y-%m-%d')
+        Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
+
+        df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
+        df['Start_date'] = df['Start_date'].astype('str')
+
+        # 기간판단 불필요한 행들
+        df_nongift = df.loc[df.Start_date == 'nan']
+
+        # 기간판단 필요한 행들
+        df_gift = df.loc[df.Start_date != 'nan']
+        df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
+        df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
+        df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
+        # df_gift = df_gift.apply(loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
+
+        # 결합
+        df = pd.concat([df_nongift, df_gift])
+        df = df.drop(columns={'Start_date', 'End_date'})
 
     return df
 
@@ -349,6 +380,7 @@ def get_Cur_Shape_Lineup(Brd, SKU_df):
 def SKU_Mapping(Brd, df, Option_df):
     """
     같은 주문상품명&상품옵션에 대해 SKU가 여러개 들어있는 경우 left outer join되어 행이 늘어남
+    핑거수트
     """
     if Brd == 'an':
         # 안다르일 경우 Style_Code를 SKU에 사용
@@ -825,8 +857,11 @@ def add_rows(df):
                       'Sales_Total', 'Sales_Divide')] = ['사은품', '기타', 'FS-008', '프렙패드 플러스(2ea)',
                                                          np.nan, np.nan, np.nan, '-', '-', '-', np.nan, 0,
                                                          np.nan, 0, 1, 1, 1, 0, 0, 0]
+    p = re.compile('(?<=\^)[0-9]+')
+    reflet_info_3['Cur_Item'] = reflet_info_3['Cur_Item'].apply(lambda x: x.split(', ')) # 리스트로 쪼개기
+    reflet_info_3['Cur_Item'] = reflet_info_3['Cur_Item'].apply(lambda x: [y for y in x if ('네일' in y) or ('페디' in y)]) # 네일 or 페디 포함한 문자열만 남기기
+    reflet_info_3['Quantity_SKU'] = reflet_info_3.apply(lambda x: sum(list(map(int, p.findall(str(x.Cur_Item))))), axis=1) # ^ 뒤의 숫자만 가져와서 더하기
 
-    reflet_info_3['Quantity_SKU'] = reflet_info_3.apply(lambda x: x.Cur_Item.count('네일') + x.Cur_Item.count('페디'), axis=1)
 
     # 추가된 행 결합
     reflet_info = pd.concat([reflet_info_1, reflet_info_2, reflet_info_3])
@@ -840,14 +875,20 @@ def add_rows(df):
 def add_reflet_info(Brd, final_df):
     '''
     핑거수트 리플렛 데이터 추가
-    1. cur_item : 구매건당 item 리스트 / cur_unused_data : 구매건당 unused_data 리스트
+    1. cur_item : 구매건당 item^구매수량 리스트 / cur_unused_data : 구매건당 unused_data 리스트
     2. 주문번호, cur_item 기준 중복제거
     3. reflet_info : 주문건당 추가되는 사은품 행 저장
     4. 기존 df에 reflet_info append 한 후 정렬
     '''
 
     if Brd == 'fs':
-        cur_item_df = final_df[['Date_', 'Orderid', 'Sequence', 'Item']]
+        cur_item_df = final_df[['Date_', 'Orderid', 'Sequence', 'Item', 'Quantity_SKU']]
+        cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Sequence', 'Item']).sum('Quantity_SKU').reset_index()
+        cur_item_df = cur_item_df.astype({'Quantity_SKU':str})
+        cur_item_df['Quantity_SKU'] = cur_item_df['Quantity_SKU'].str.replace('0', '', regex=False)
+        cur_item_df['Item'] = cur_item_df['Item'] + "^" + cur_item_df['Quantity_SKU']
+        cur_item_df = cur_item_df.drop(columns=['Quantity_SKU'])
+
         cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Sequence']).agg(lambda x: list(x)).reset_index()
         cur_item_df['Item'] = cur_item_df['Item'].apply(lambda x: str(sorted(x)))
         cur_item_df = cur_item_df.sort_values(by=['Date_', 'Orderid', 'Sequence'], ascending=(True, True, True))
