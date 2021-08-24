@@ -273,60 +273,65 @@ def get_Option_df(Brd):
 def Option_Mapping(Brd, df, Option_df):
     '''
     불러온 Option_df 정보를 구매정보에 매핑
-    * 안다르 : Style_Code 기준으로 매핑
-    * 핑거수트 : 주문상품명, 상품옵션 기준으로 매핑, 단 사은품 매핑은 기간 기준으로 다르게 적용
-    * 데일리앤코 : 주문상품명, 상품옵션 기준으로 매핑
+    * 안다르, 핑거수트 : Item_Option 열 사용하지 않음
+    * 그 외 : 주문상품명, 상품옵션 기준으로 Item_Option 매핑
     '''
 
-    if Brd == 'an':
-        unique_cols = list(Option_df.columns)
-        Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
-        df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
+    if (Brd!='an') and (Brd!='fs'):
+        unique_cols = ['Item_Option']
+        Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
+        Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
+        df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
         df[unique_cols] = df[unique_cols].fillna('@')
 
-        # 대카테고리, 소카테고리 불필요 단어 제거
-        df['Category1'] = df['Category1'].apply(lambda x: x.replace('의류','') if '의류' in x else x)
-        df['Category3'] = df['Category3'].apply(lambda x: x.replace('티셔츠','') if '티셔츠' in x else x)
+    # if Brd == 'an':
+        # unique_cols = list(Option_df.columns)
+        # Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
+        # df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
+        # df[unique_cols] = df[unique_cols].fillna('@')
+        #
+        # # 대카테고리, 소카테고리 불필요 단어 제거
+        # df['Category1'] = df['Category1'].apply(lambda x: x.replace('의류','') if '의류' in x else x)
+        # df['Category3'] = df['Category3'].apply(lambda x: x.replace('티셔츠','') if '티셔츠' in x else x)
 
-    else:
-        if Brd == 'fs':
-            unique_cols = ['SKU_Code', 'Item', 'Shape', 'Lineup', 'Collection']
-            Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
-            Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'SKU_Code'], keep='last')  # 매핑 중복기입 이슈 방지용, 핑거수트는 sku_code 다른경우 있음
-            df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-            df[unique_cols] = df[unique_cols].fillna('@')
-        else:
-            unique_cols = ['Item_Option']
-            Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
-            Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
-            df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-            df[unique_cols] = df[unique_cols].fillna('@')
+    # else:
+    #     if Brd == 'fs':
+    #         # unique_cols = ['SKU_Code', 'Item', 'Shape', 'Lineup', 'Collection']
+    #         # Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
+    #         # Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'SKU_Code'], keep='last')  # 매핑 중복기입 이슈 방지용, 핑거수트는 sku_code 다른경우 있음
+    #         # df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+    #         # df[unique_cols] = df[unique_cols].fillna('@')
+    #     else:
+    #         unique_cols = ['Item_Option']
+    #         Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
+    #         Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
+    #         df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+    #         df[unique_cols] = df[unique_cols].fillna('@')
 
     # 핑거수트 사은품 매핑 기간별 처리
-    if Brd == 'fs':
-        # 사은품 옵션매핑 테이블 불러오기
-        Option_df2 = datalist('map', 'tb_map_primecost_option_fs2', "")
-        Option_df2.columns = ['idx', 'set_', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Start_date', 'End_date']
-        Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
-        Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-11', '%Y-%m-%d')
-        Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
-
-        df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
-        df['Start_date'] = df['Start_date'].astype('str')
-
-        # 기간판단 불필요한 행들
-        df_nongift = df.loc[df.Start_date == 'nan']
-
-        # 기간판단 필요한 행들
-        df_gift = df.loc[df.Start_date != 'nan']
-        df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
-        df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
-        df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
-        # df_gift = df_gift.apply(loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
-
-        # 결합
-        df = pd.concat([df_nongift, df_gift])
-        df = df.drop(columns={'Start_date', 'End_date'})
+    # if Brd == 'fs':
+        # # 사은품 옵션매핑 테이블 불러오기
+        # Option_df2 = datalist('map', 'tb_map_primecost_option_fs2', "")
+        # Option_df2.columns = ['idx', 'set_', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Start_date', 'End_date']
+        # Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
+        # Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-11', '%Y-%m-%d')
+        # Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
+        #
+        # df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
+        # df['Start_date'] = df['Start_date'].astype('str')
+        #
+        # # 기간판단 불필요한 행들
+        # df_nongift = df.loc[df.Start_date == 'nan']
+        #
+        # # 기간판단 필요한 행들
+        # df_gift = df.loc[df.Start_date != 'nan']
+        # df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
+        # df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
+        # df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
+        #
+        # # 결합
+        # df = pd.concat([df_nongift, df_gift])
+        # df = df.drop(columns={'Start_date', 'End_date'})
 
     return df
 
@@ -380,24 +385,72 @@ def get_Cur_Shape_Lineup(Brd, SKU_df):
 def SKU_Mapping(Brd, df, Option_df):
     """
     같은 주문상품명&상품옵션에 대해 SKU가 여러개 들어있는 경우 left outer join되어 행이 늘어남
-    핑거수트
+    * 안다르 : Style_Code 기준 Option_df 매핑, SKU로는 Style_Code 그대로 사용
+    * 핑거수트 : 주문상품명, 상품옵션 기준으로 Option_df 매핑. 단, 사은품일경우 기간 기준으로 적용
+    * 그 외 : 주문상품명, 상품옵션 기준으로 Option_df 매핑
     """
     if Brd == 'an':
+        # Option_df 매핑
+        unique_cols = list(Option_df.columns)
+        Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
+        df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
+        df[unique_cols] = df[unique_cols].fillna('@')
+
+        # 대카테고리, 소카테고리 불필요 단어 제거
+        df['Category1'] = df['Category1'].apply(lambda x: x.replace('의류','') if '의류' in x else x)
+        df['Category3'] = df['Category3'].apply(lambda x: x.replace('티셔츠','') if '티셔츠' in x else x)
+
         # 안다르일 경우 Style_Code를 SKU에 사용
         df['SKU']=df.Style_Code
         df['Quantity_Bundle'] = 1 #quantity_bundle이 안다르는 옵션매핑에서 들어오지 않음
         df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
+
+    elif Brd == 'fs':
+        # Option_df 매핑
+        unique_cols = ['SKU_Code', 'Item', 'Shape', 'Lineup', 'Collection']
+        Option_df = Option_df[['주문상품명', '상품옵션', 'Quantity_Bundle', 'Set', 'SKU'] + unique_cols]
+        Option_df = Option_df[~((Option_df['Set'] == '세트') & (Option_df['SKU'] == 'nan'))] #세트인데 SKU 매핑이 null이면 필터링
+        Option_df = Option_df[Option_df['SKU'] != '증정품'] #증정품 필터링
+        Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'Quantity_Bundle', 'SKU', 'SKU_Code'], keep='last')
+        df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
+        df['SKU'] = df['SKU'].fillna("@") #단품인데 null이면 @로 채움
+        df[unique_cols] = df[unique_cols].fillna('@')
+
+        # 사은품 옵션매핑 테이블 불러오기
+        Option_df2 = datalist('map', 'tb_map_primecost_option_fs2', "")
+        Option_df2.columns = ['idx', 'set_', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Start_date', 'End_date']
+        Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
+        Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-11', '%Y-%m-%d')
+        Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
+        df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
+        df['Start_date'] = df['Start_date'].astype('str')
+
+        # 기간판단 불필요한 행들
+        df_nongift = df.loc[df.Start_date == 'nan']
+
+        # 기간판단 필요한 행들
+        df_gift = df.loc[df.Start_date != 'nan']
+        df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
+        df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
+        df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
+
+        # 결합
+        df = pd.concat([df_nongift, df_gift])
+        df = df.drop(columns={'Start_date', 'End_date'})
+
+        df['Quantity_Bundle'] = df['Quantity_Bundle'].fillna(0).replace('', 0).astype(int)
+        df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
+
     else:
         Option_df = Option_df[['주문상품명', '상품옵션', 'Set', 'Quantity_Bundle', 'SKU']]
         Option_df = Option_df[~((Option_df['Set'] == '세트') & (Option_df['SKU'] == 'nan'))] #세트인데 SKU 매핑이 null이면 필터링
         Option_df = Option_df[Option_df['SKU'] != '증정품'] #증정품 필터링
         Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'Quantity_Bundle', 'SKU'], keep='last')
-        Option_df['SKU'] = Option_df['SKU'].fillna("@") #단품인데 null이면 @로 채움
         Option_df = Option_df.drop(columns="Set")
         df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
         df['SKU'] = df['SKU'].fillna("@") #단품인데 null이면 @로 채움
 
-        df['Quantity_Bundle'] = df['Quantity_Bundle'].fillna(0).replace('', 0).astype(int) #quantity_bundle이 안다르는 옵션매핑에서 들어오지 않음
+        df['Quantity_Bundle'] = df['Quantity_Bundle'].fillna(0).replace('', 0).astype(int)
         df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
 
     return df

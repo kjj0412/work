@@ -30,7 +30,7 @@ def Broad_RePurchase(df, Brand):
     """
 
     cols = ['Phone_Number', 'Date_', 'Item', 'Broad_Repurchase_User_DB', 'Last_OrderDate', 'First_Purchase_Date_DB', 'Last_Sequence']
-    if Brand == '안다르':
+    if Brand == '유리카' or Brand == '티타드' or Brand == '핑거수트' or Brand == '안다르':
         cols.remove('Item')
         df = df[cols]
         df = df.sort_values(['Phone_Number', 'Date_'], ascending=(True, True))
