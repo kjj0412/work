@@ -175,7 +175,8 @@ def final_field(Brd):
             'Quantity_Rows',
             'Quantity_Divide',
             'Sales_Total',
-            'Sales_Divide'
+            'Sales_Divide',
+            'Product_Name' #임시추가됨
         ]
     elif Brd == 'an':
         ColumnName = [

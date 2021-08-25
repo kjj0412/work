@@ -344,6 +344,8 @@ def main(Brand, start, end, update_all):
 
     df = Data_handler.CommonColumns(df, Brand) # 쉬운 가공열들
 
+    df = Data_handler.revise_prdname(df, Brd) # (핑거수트) 특정 사은품 과거 이름으로 치환
+
     df = Data_handler.Blacklist_Mapping(df, Brd)  # Bulk
 
     df = Data_handler.Item_Mapping(df, Brd) # Item
@@ -373,8 +375,8 @@ def main(Brand, start, end, update_all):
     final_df = pd.concat([main_df, err_df], ignore_index=True)
     final_df = Data_handler.Row_divide(Brd, final_df) # Quantity_divide, Sales_divide
 
-    final_df = Data_handler.add_reflet_info(Brd, final_df) # 리플렛 행 추가 (핑거수트)
-    final_df = final_df.sort_values(by=['Orderid', 'Sequence'], ascending=(True, True))
+    # final_df = Data_handler.add_reflet_info(Brd, final_df) # 리플렛 행 추가 (핑거수트)
+    # final_df = final_df.sort_values(by=['Orderid', 'Sequence'], ascending=(True, True))
 
     final_df = final_df.rename(columns={'주문상품명':'Product_Name'})
     final_df = final_df[final_field(Brd)]
