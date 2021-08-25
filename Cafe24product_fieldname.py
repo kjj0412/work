@@ -86,6 +86,7 @@ def field_sorting(Brd):
             '상품옵션',
             'Style_Code',  # 추가됨
             'Color_Code',  # 추가됨
+            'Size', # 추가됨
             'Category1',   # 추가됨
             'Category2',   # 추가됨
             'Category3'    # 추가됨
@@ -203,6 +204,7 @@ def final_field(Brd):
             'Option_SKU',
             'Style_Code',  # 추가됨
             'Color_Code',  # 추가됨
+            'Size',  # 추가됨
             'Category1',  # 추가됨
             'Category2',  # 추가됨
             'Category3',  # 추가됨

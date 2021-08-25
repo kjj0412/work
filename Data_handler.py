@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 import os
 import pandas as pd
 import pickle
@@ -240,6 +241,81 @@ def get_Codes(Brd, df):
     return df
 
 
+def get_Size(Brd, df):
+    '''
+    * 안다르 주문상품명에서 사이즈 분리
+    * df_temp에 매핑 없이 사이즈 컬럼 끼워넣어 리턴
+    '''
+
+    if Brd == 'an':
+        # product 코드 추출
+        Regex = re.compile('\[[0-9a-zA-Z]*-[0-9a-zA-Z]*\]|\([0-9a-zA-Z]*-[0-9a-zA-Z]*\)')
+        df['Product_Code'] = df['주문상품명(세트상품 포함)'].apply(lambda x: Regex.findall(str(x)))  # 코드가 리스트로 들어감, 대괄호 중괄호 모두 들어옴
+        df['Product_Code'] = df['Product_Code'].apply(lambda x: re.sub('[\[\]\(\)\']', '', str(x)) if len(x) > 0 else '구분불가')
+
+        # 예외처리
+        df.loc[df.Product_Code == 'testAJF8L-22BLK', 'Product_Code'] = 'AJF8L-22BLK'
+        df.loc[df.Product_Code == 'testAJF8L-22GRY', 'Product_Code'] = 'AJF8L-22GRY'
+
+        # 1. Product_Code 가 구분불가인 경우
+        df_nocode = df.loc[df.Product_Code=='구분불가']
+
+        # 1) 옵션매핑 테이블 불러오기
+        Option_df = datalist('andar', 'prdtinfo', "")
+        Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier', 'Category1', 'Category2', 'Category3', 'Prime_Cost']
+        Option_df = Option_df[['주문상품명', 'Style_Code']]
+        Option_df = Option_df.drop_duplicates()
+
+        # 2) 상품명 기준 Style_Code 매핑
+        df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'])
+
+        # 3) Color_Code는 빈 열로 추가
+        df_nocode['Color_Code'] = '구분불가'
+
+        # 2. Product_Code가 있는 경우
+        df_yescode = df.loc[df.Product_Code != '구분불가']
+
+        # 1) 행분리
+        df_yescode = tidy_split(df_yescode, 'Product_Code', sep=',')
+        df_yescode['Product_Code'] = df_yescode['Product_Code'].apply(lambda x:x.strip())
+
+        # 2) 예외처리
+        df_yescode = df_yescode.drop(df_yescode[df_yescode.Product_Code == 'S-M'].index)  # product 코드 아닌데 추출된 경우는 제외
+        df_yescode.loc[df_yescode.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040' # Product_Code 잘못나온 경우 수정
+        errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01', 'RVP-0040'])  # Product_Code와 Style_Code가 같은 경우 처리
+
+        # 3) Style code와 color code 분리
+        df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
+            lambda x: x if x == '구분불가' or x in errcode_list else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
+                x.split('-')[0]) == 4 else x)
+        df_yescode['Color_Code'] = df_yescode['Product_Code'].apply(
+            lambda x: x if x == '구분불가' or x in errcode_list else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
+                x.split('-')[0]) == 4 else x)
+
+        # 3. 결합
+        df = pd.concat([df_yescode, df_nocode])
+
+
+        # 사이즈 치환
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: re.sub('사이즈\ ?\d?\)|SIZE', '사이즈', str(x)))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('/F=', '사이즈=F'))
+
+        # 사이즈 부분만 추출
+        sizeRegex = re.compile('사이즈=.*?(?= )')
+        df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : sizeRegex.findall(str(x)))
+
+        # 행분리
+        print(len(df))
+        df = tidy_split(df, 'Size', sep=',')
+        df['Size'] = df['Size'].apply(lambda x: x.strip())
+
+        # 중복제거
+        df = df.drop_duplicates(subset=['Orderid', 'Style_Code', 'Color_Code'], keep='first')
+        print(len(df))
+
+    return df
+
+
 def get_PaymentMethod(Brd, df):
     '''
     * Order_Path = 결제방식(대)
@@ -437,7 +513,7 @@ def SKU_Mapping(Brd, df, Option_df):
         Option_df2 = datalist('map', 'tb_map_primecost_option_fs2', "")
         Option_df2.columns = ['idx', 'set_', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Start_date', 'End_date']
         Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
-        Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-11', '%Y-%m-%d')
+        Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-08', '%Y-%m-%d')
         Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
         df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
         df['Start_date'] = df['Start_date'].astype('str')
@@ -449,7 +525,7 @@ def SKU_Mapping(Brd, df, Option_df):
         df_gift = df.loc[df.Start_date != 'nan']
         df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
         df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
-        df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
+        df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date + timedelta(days=3))]
 
         # 결합
         df = pd.concat([df_nongift, df_gift])
@@ -1050,3 +1126,36 @@ def tidy_split(df, column, sep='|', keep=False):
     new_df[column] = new_values
 
     return new_df
+
+
+def explode(df, lst_cols, fill_value='', preserve_index=False):
+    """get_size 함수에서 쓰는 행분리 로직. 여러 열에 대해 적용 가능"""
+    # make sure `lst_cols` is list-alike
+    if (lst_cols is not None
+        and len(lst_cols) > 0
+        and not isinstance(lst_cols, (list, tuple, np.ndarray, pd.Series))):
+        lst_cols = [lst_cols]
+    # all columns except `lst_cols`
+    idx_cols = df.columns.difference(lst_cols)
+    # calculate lengths of lists
+    lens = df[lst_cols[0]].str.len()
+    # preserve original index values
+    idx = np.repeat(df.index.values, lens)
+    # create "exploded" DF
+    res = (pd.DataFrame({
+                col:np.repeat(df[col].values, lens)
+                for col in idx_cols},
+                index=idx)
+             .assign(**{col:np.concatenate(df.loc[lens>0, col].values)
+                            for col in lst_cols}))
+    # append those rows that have empty lists
+    if (lens == 0).any():
+        # at least one list in cells is empty
+        res = (res.append(df.loc[lens==0, idx_cols], sort=False)
+                  .fillna(fill_value))
+    # revert the original index order
+    res = res.sort_index()
+    # reset index if requested
+    if not preserve_index:
+        res = res.reset_index(drop=True)
+    return res

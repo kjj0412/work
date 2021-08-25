@@ -354,6 +354,8 @@ def main(Brand, start, end, update_all):
 
     df = Data_handler.get_Codes(Brd, df) # Style_Code, Color_Code
 
+    # df = Data_handler.get_Size(Brd, df) # Size
+
     df = Data_handler.get_PaymentMethod(Brd, df) # Order_Path, Payment_Method
 
     Option_df = Data_handler.get_Option_df(Brd) # 옵션매핑테이블 불러오기
@@ -435,7 +437,7 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    # main('안다르', start=30, end=0, update_all=False)
+    # main('안다르', start=9000, end=0, update_all=True)
     main('핑거수트', start=9000, end=0, update_all=True)
 
 
