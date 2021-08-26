@@ -125,9 +125,14 @@ def revise_prdname(df, Brd):
     [5+2 증정품] 핑거수트 베이스코트 1개 -> 2021-07-21 이전 건은 [증정품] 핑거수트 네일/페디 1개 (랜덤발송) 으로 변경
     '''
     if Brd == 'fs':
-        df.loc[(df.주문상품명 == '[3+1 증정품] 핑거수트 네일/페디 1개 (랜덤발송)') & (df.Date_<'2021-07-21'), '주문상품명'] = '[증정품] 핑거수트 네일/페디 1개 (랜덤 발송)'
-        df.loc[(df.주문상품명 == '[3+1 증정품] 핑거수트 베이스코트 1개') & (df.Date_<'2021-08-11'), '주문상품명'] = '[3+1 증정품] 핑거수트 네일/페디 1개 (랜덤)'
-        df.loc[(df.주문상품명 == '[5+2 증정품] 핑거수트 베이스코트 1개') & (df.Date_<'2021-07-21'), '주문상품명'] = '[증정품] 핑거수트 네일/페디 1개 (랜덤발송)'
+        # 주문번호 앞자리를 date 형식으로 변경한 Order_date 생성
+        df['Order_date'] = df['Orderid'].apply(lambda x: pd.to_datetime(x.split('-')[0], format='%Y-%m-%d'))
+
+        # 증정품 시작일 이전 건은 이전 상품명으로 변경
+        df.loc[(df.주문상품명 == '[3+1 증정품] 핑거수트 네일/페디 1개 (랜덤발송)') & (df.Order_date<'2021-07-21'), '주문상품명'] = '[증정품] 핑거수트 네일/페디 1개 (랜덤 발송)'
+        df.loc[(df.주문상품명 == '[3+1 증정품] 핑거수트 베이스코트 1개') & (df.Order_date<'2021-08-11'), '주문상품명'] = '[3+1 증정품] 핑거수트 네일/페디 1개 (랜덤)'
+        df.loc[(df.주문상품명 == '[5+2 증정품] 핑거수트 베이스코트 1개') & (df.Order_date<'2021-07-21'), '주문상품명'] = '[증정품] 핑거수트 네일/페디 1개 (랜덤발송)'
+        df = df.drop(columns={'Order_date'})
     else:
         pass
 
@@ -479,7 +484,7 @@ def SKU_Mapping(Brd, df, Option_df):
     """
     같은 주문상품명&상품옵션에 대해 SKU가 여러개 들어있는 경우 left outer join되어 행이 늘어남
     * 안다르 : Style_Code 기준 Option_df 매핑, SKU로는 Style_Code 그대로 사용
-    * 핑거수트 : 주문상품명, 상품옵션 기준으로 Option_df 매핑. 단, 사은품일경우 기간 기준으로 적용
+    * 핑거수트 : 주문상품명, 상품옵션 기준으로 Option_df 매핑. 단, 사은품일경우 주문일 기준으로 기간 내에 해당하는 건만 매핑
     * 그 외 : 주문상품명, 상품옵션 기준으로 Option_df 매핑
     """
     if Brd == 'an':
@@ -525,7 +530,13 @@ def SKU_Mapping(Brd, df, Option_df):
         df_gift = df.loc[df.Start_date != 'nan']
         df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
         df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
-        df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date + timedelta(days=3))]
+
+        ## 1) 주문번호 앞자리를 date 형식으로 변경한 Order_date 생성
+        df_gift['Order_date'] = df_gift['Orderid'].apply(lambda x: pd.to_datetime(x.split('-')[0], format='%Y-%m-%d'))
+
+        ## 2) Order_date 기준으로 판단
+        df_gift = df_gift.loc[(df_gift.Order_date >= df_gift.Start_date) & (df_gift.Order_date <= df_gift.End_date)]
+        df_gift = df_gift.drop(columns={'Order_date'})
 
         # 결합
         df = pd.concat([df_nongift, df_gift])
