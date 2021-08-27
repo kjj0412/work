@@ -344,17 +344,13 @@ def main(Brand, start, end, update_all):
 
     df = Data_handler.CommonColumns(df, Brand) # 쉬운 가공열들
 
-    df = Data_handler.revise_prdname(df, Brd) # (핑거수트) 특정 사은품 과거 이름으로 치환
-
     df = Data_handler.Blacklist_Mapping(df, Brd)  # Bulk
 
     df = Data_handler.Item_Mapping(df, Brd) # Item
 
     df = Data_handler.NumColumns(df) # Sales_Total, Quantity_Option
 
-    df = Data_handler.get_Codes(Brd, df) # Style_Code, Color_Code
-
-    # df = Data_handler.get_Size(Brd, df) # Size
+    df = Data_handler.get_Codes(Brd, df) # Style_Code, Color_Code, Size
 
     df = Data_handler.get_PaymentMethod(Brd, df) # Order_Path, Payment_Method
 

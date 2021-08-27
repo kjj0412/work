@@ -117,28 +117,6 @@ def CommonColumns(df, Brand):
     return df
 
 
-def revise_prdname(df, Brd):
-    '''
-    (핑거수트) 현재 상품명 기준 시작일 이전에 발생한 증정품 구매건은 이전 상품명으로 매핑되도록 처리
-    [3+1 증정품] 핑거수트 네일/페디 1개 (랜덤발송) -> 2021-07-21 이전 건은 [증정품] 핑거수트 네일/페디 1개 (랜덤 발송) 으로 변경
-    [3+1 증정품] 핑거수트 베이스코트 1개 -> 2021-08-11 이전 건은 [3+1 증정품] 핑거수트 네일/페디 1개 (랜덤) 으로 변경
-    [5+2 증정품] 핑거수트 베이스코트 1개 -> 2021-07-21 이전 건은 [증정품] 핑거수트 네일/페디 1개 (랜덤발송) 으로 변경
-    '''
-    if Brd == 'fs':
-        # 주문번호 앞자리를 date 형식으로 변경한 Order_date 생성
-        df['Order_date'] = df['Orderid'].apply(lambda x: pd.to_datetime(x.split('-')[0], format='%Y-%m-%d'))
-
-        # 증정품 시작일 이전 건은 이전 상품명으로 변경
-        df.loc[(df.주문상품명 == '[3+1 증정품] 핑거수트 네일/페디 1개 (랜덤발송)') & (df.Order_date<'2021-07-21'), '주문상품명'] = '[증정품] 핑거수트 네일/페디 1개 (랜덤 발송)'
-        df.loc[(df.주문상품명 == '[3+1 증정품] 핑거수트 베이스코트 1개') & (df.Order_date<'2021-08-11'), '주문상품명'] = '[3+1 증정품] 핑거수트 네일/페디 1개 (랜덤)'
-        df.loc[(df.주문상품명 == '[5+2 증정품] 핑거수트 베이스코트 1개') & (df.Order_date<'2021-07-21'), '주문상품명'] = '[증정품] 핑거수트 네일/페디 1개 (랜덤발송)'
-        df = df.drop(columns={'Order_date'})
-    else:
-        pass
-
-    return df
-
-
 def Item_Mapping(df, Brd):
     if Brd == 'fs' or Brd == 'an':
         pass
@@ -204,32 +182,28 @@ def get_Codes(Brd, df):
 
         # 1. Product_Code 가 구분불가인 경우
         df_nocode = df.loc[df.Product_Code=='구분불가']
+        df_nocode = get_Size(df_nocode)
 
-        # 1) 옵션매핑 테이블 불러오기
+        ## 1) Style_Code : 상품명 기준 매핑
         Option_df = datalist('andar', 'prdtinfo', "")
         Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier', 'Category1', 'Category2', 'Category3', 'Prime_Cost']
         Option_df = Option_df[['주문상품명', 'Style_Code']]
         Option_df = Option_df.drop_duplicates()
-
-        # 2) 상품명 기준 Style_Code 매핑
         df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'])
 
-        # 3) Color_Code는 빈 열로 추가
+        ## 2) Color_Code : 구분불가
         df_nocode['Color_Code'] = '구분불가'
 
         # 2. Product_Code가 있는 경우
         df_yescode = df.loc[df.Product_Code != '구분불가']
+        df_yescode = get_Size(df_yescode)
 
-        # 1) 행분리
-        df_yescode = tidy_split(df_yescode, 'Product_Code', sep=',')
-        df_yescode['Product_Code'] = df_yescode['Product_Code'].apply(lambda x:x.strip())
-
-        # 2) 예외처리
+        ## 1) 예외처리
         df_yescode = df_yescode.drop(df_yescode[df_yescode.Product_Code == 'S-M'].index)  # product 코드 아닌데 추출된 경우는 제외
         df_yescode.loc[df_yescode.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040' # Product_Code 잘못나온 경우 수정
         errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01', 'RVP-0040'])  # Product_Code와 Style_Code가 같은 경우 처리
 
-        # 3) Style code와 color code 분리
+        ## 2) Style code와 color code 분리
         df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
             lambda x: x if x == '구분불가' or x in errcode_list else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
                 x.split('-')[0]) == 4 else x)
@@ -239,6 +213,7 @@ def get_Codes(Brd, df):
 
         # 3. 결합
         df = pd.concat([df_yescode, df_nocode])
+        df.loc[df.Size==''].to_csv('사이즈없는건.csv', encoding='utf-8-sig', index=False)
 
     else:
         pass
@@ -246,77 +221,40 @@ def get_Codes(Brd, df):
     return df
 
 
-def get_Size(Brd, df):
+def get_Size(df):
     '''
-    * 안다르 주문상품명에서 사이즈 분리
-    * df_temp에 매핑 없이 사이즈 컬럼 끼워넣어 리턴
+    * 안다르 주문상품명에서 사이즈 추출
     '''
 
-    if Brd == 'an':
-        # product 코드 추출
-        Regex = re.compile('\[[0-9a-zA-Z]*-[0-9a-zA-Z]*\]|\([0-9a-zA-Z]*-[0-9a-zA-Z]*\)')
-        df['Product_Code'] = df['주문상품명(세트상품 포함)'].apply(lambda x: Regex.findall(str(x)))  # 코드가 리스트로 들어감, 대괄호 중괄호 모두 들어옴
-        df['Product_Code'] = df['Product_Code'].apply(lambda x: re.sub('[\[\]\(\)\']', '', str(x)) if len(x) > 0 else '구분불가')
+    df['Product_Code'] = df['Product_Code'].apply(lambda x: x.split(','))
+    # 사이즈 치환
+    df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: re.sub('사이즈\ ?\d?\)|SIZE|사이즈\(.+?\)', '사이즈', str(x)))
+    df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('/F=', '사이즈=F'))
 
-        # 예외처리
-        df.loc[df.Product_Code == 'testAJF8L-22BLK', 'Product_Code'] = 'AJF8L-22BLK'
-        df.loc[df.Product_Code == 'testAJF8L-22GRY', 'Product_Code'] = 'AJF8L-22GRY'
+    # 사이즈 부분만 추출
+    sizeRegex = re.compile('사이즈=[0-9a-zA-Z]{0,3}|(?<=[가-힣]\/)[0-9a-zA-Z]|Free|(?<=[가-힣]\-)[0-9a-zA-Z]')
+    df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : str(sizeRegex.findall(str(x))))
+    df.loc[df['Size'] == "[]", 'Size'] = '구분불가'
 
-        # 1. Product_Code 가 구분불가인 경우
-        df_nocode = df.loc[df.Product_Code=='구분불가']
+    # Prduct_Code와 Size를 동일 인덱스끼리 결합
+    df['Size'] = df['Size'].apply(lambda x: re.sub('[\[\]\(\)\']', '', x))
+    df['Size'] = df['Size'].apply(lambda x: x.split(','))
+    df['Code_Size'] = df.apply(lambda x: list(zip(x.Product_Code, x.Size)), axis=1)
 
-        # 1) 옵션매핑 테이블 불러오기
-        Option_df = datalist('andar', 'prdtinfo', "")
-        Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier', 'Category1', 'Category2', 'Category3', 'Prime_Cost']
-        Option_df = Option_df[['주문상품명', 'Style_Code']]
-        Option_df = Option_df.drop_duplicates()
+    # 1) 행분리
+    df = tidy_split(df, 'Code_Size', sep='),')
+    df['Code_Size'] = df['Code_Size'].apply(lambda x: re.sub('[\[\]\(\)\'\ ]', '',x))
 
-        # 2) 상품명 기준 Style_Code 매핑
-        df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'])
+    # 2) 열분리
+    df['Product_Code'] = df['Code_Size'].apply(lambda x: x.split(',')[0])
+    df['Size'] = df['Code_Size'].apply(lambda x: x.split(',')[1])
+    df = df.drop(columns={'Code_Size'})
 
-        # 3) Color_Code는 빈 열로 추가
-        df_nocode['Color_Code'] = '구분불가'
+    # 3) Size에서 사이즈= 제거
+    df['Size'] = df['Size'].apply(lambda x:x.replace("사이즈=",""))
 
-        # 2. Product_Code가 있는 경우
-        df_yescode = df.loc[df.Product_Code != '구분불가']
-
-        # 1) 행분리
-        df_yescode = tidy_split(df_yescode, 'Product_Code', sep=',')
-        df_yescode['Product_Code'] = df_yescode['Product_Code'].apply(lambda x:x.strip())
-
-        # 2) 예외처리
-        df_yescode = df_yescode.drop(df_yescode[df_yescode.Product_Code == 'S-M'].index)  # product 코드 아닌데 추출된 경우는 제외
-        df_yescode.loc[df_yescode.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040' # Product_Code 잘못나온 경우 수정
-        errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01', 'RVP-0040'])  # Product_Code와 Style_Code가 같은 경우 처리
-
-        # 3) Style code와 color code 분리
-        df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
-            lambda x: x if x == '구분불가' or x in errcode_list else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
-                x.split('-')[0]) == 4 else x)
-        df_yescode['Color_Code'] = df_yescode['Product_Code'].apply(
-            lambda x: x if x == '구분불가' or x in errcode_list else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
-                x.split('-')[0]) == 4 else x)
-
-        # 3. 결합
-        df = pd.concat([df_yescode, df_nocode])
-
-
-        # 사이즈 치환
-        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: re.sub('사이즈\ ?\d?\)|SIZE', '사이즈', str(x)))
-        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('/F=', '사이즈=F'))
-
-        # 사이즈 부분만 추출
-        sizeRegex = re.compile('사이즈=.*?(?= )')
-        df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : sizeRegex.findall(str(x)))
-
-        # 행분리
-        print(len(df))
-        df = tidy_split(df, 'Size', sep=',')
-        df['Size'] = df['Size'].apply(lambda x: x.strip())
-
-        # 중복제거
-        df = df.drop_duplicates(subset=['Orderid', 'Style_Code', 'Color_Code'], keep='first')
-        print(len(df))
+    # 4) Free 인 경우 F로 치환
+    df['Size'] = df['Size'].apply(lambda x: 'F' if x=='Free' else x)
 
     return df
 
@@ -338,7 +276,6 @@ def get_PaymentMethod(Brd, df):
             if ((x['결제수단'] == '적립금') and (x['결제업체'] == 'nan'))
             else '네이버페이' if ((x['결제수단'] != '적립금') and (x['결제업체'] == 'nan'))
             else (x['결제업체']), axis=1)
-
     else:
         pass
     return df
@@ -520,6 +457,7 @@ def SKU_Mapping(Brd, df, Option_df):
         Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
         Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-08', '%Y-%m-%d')
         Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
+        # Option_df2 = Option_df2.drop_duplicates(['주문상품명', '상품옵션', 'SKU_Code'], keep='last')
         df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
         df['Start_date'] = df['Start_date'].astype('str')
 
@@ -541,7 +479,6 @@ def SKU_Mapping(Brd, df, Option_df):
         # 결합
         df = pd.concat([df_nongift, df_gift])
         df = df.drop(columns={'Start_date', 'End_date'})
-
         df['Quantity_Bundle'] = df['Quantity_Bundle'].fillna(0).replace('', 0).astype(int)
         df['Quantity_SKU'] = df['Quantity_Option'] * df['Quantity_Bundle']
 
