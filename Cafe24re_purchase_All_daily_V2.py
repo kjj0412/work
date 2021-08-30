@@ -373,8 +373,8 @@ def main(Brand, start, end, update_all):
     final_df = pd.concat([main_df, err_df], ignore_index=True)
     final_df = Data_handler.Row_divide(Brd, final_df) # Quantity_divide, Sales_divide
 
-    # final_df = Data_handler.add_reflet_info(Brd, final_df) # 리플렛 행 추가 (핑거수트)
-    # final_df = final_df.sort_values(by=['Orderid', 'Sequence'], ascending=(True, True))
+    final_df = Data_handler.add_reflet_info(Brd, final_df) # 리플렛 행 추가 (핑거수트)
+    final_df = final_df.sort_values(by=['Orderid', 'Sequence'], ascending=(True, True))
 
     final_df = final_df.rename(columns={'주문상품명':'Product_Name'})
     final_df = final_df[final_field(Brd)]
@@ -383,8 +383,8 @@ def main(Brand, start, end, update_all):
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    del_data(schema, 'tb_salesrp_sku_' + Brd + '_edited', del_query)
-    insert_data(final_df, schema, 'tb_salesrp_sku_' + Brd + '_edited')
+    # del_data(schema, 'tb_salesrp_sku_' + Brd + '_current', del_query)
+    # insert_data(final_df, schema, 'tb_salesrp_sku_' + Brd + '_current')
 
     # CrossSale RD 생성
     if Brand == '핑거수트':
@@ -433,8 +433,8 @@ if __name__ == "__main__":
     update_all 변수는 전체 업데이트할 경우 True, 부분 업데이트할 경우 False 로 둠 (전체 업데이트하는 경우 start=9000으로 설정)
     """
     print('start time: ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    # main('안다르', start=9000, end=0, update_all=True)
-    main('핑거수트', start=9000, end=0, update_all=True)
+    main('안다르', start=9000, end=0, update_all=True)
+    # main('핑거수트', start=9000, end=0, update_all=True)
 
 
     # for Brand in ['유리카', '클럭', '몽제', '티타드']:

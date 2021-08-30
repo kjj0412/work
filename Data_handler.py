@@ -5,6 +5,7 @@ import pandas as pd
 import pickle
 import numpy as np
 import re
+from itertools import zip_longest
 from Data_Upload import datalist, insert_data, del_data
 
 
@@ -166,7 +167,7 @@ def Blacklist_Mapping(df, Brd):
 
 def get_Codes(Brd, df):
     '''
-    * 안다르 주문상품명에서 Style_Code, Color_Code 추출
+    * 안다르 주문상품명에서 Style_Code, Color_Code, Size 추출
     * 세트상품은 행분리
     '''
 
@@ -213,7 +214,7 @@ def get_Codes(Brd, df):
 
         # 3. 결합
         df = pd.concat([df_yescode, df_nocode])
-        df.loc[df.Size==''].to_csv('사이즈없는건.csv', encoding='utf-8-sig', index=False)
+        df.loc[df.Size=='구분불가'].to_csv('전체기간구분불가.csv', encoding='utf-8-sig', index=False)
 
     else:
         pass
@@ -225,36 +226,55 @@ def get_Size(df):
     '''
     * 안다르 주문상품명에서 사이즈 추출
     '''
+    try:
+        df['Product_Code'] = df['Product_Code'].apply(lambda x: x.split(','))
+        # 사이즈 치환
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: re.sub('사이즈\ ?\d?\)|SIZE|사이즈\(.+?\)', '사이즈', str(x)))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: re.sub('\(Free\)', '사이즈', x))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('FREE', 'F'))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('/F=', '사이즈=F'))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('Free', '사이즈=F'))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace(' F ', '사이즈=F'))
+        df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('one size', 'F'))
 
-    df['Product_Code'] = df['Product_Code'].apply(lambda x: x.split(','))
-    # 사이즈 치환
-    df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: re.sub('사이즈\ ?\d?\)|SIZE|사이즈\(.+?\)', '사이즈', str(x)))
-    df['주문상품명(세트상품 포함)'] = df['주문상품명(세트상품 포함)'].apply(lambda x: x.replace('/F=', '사이즈=F'))
+        # 사이즈 부분 1차 추출
+        sizeRegex = re.compile('(?<=[가-힣]\/)[0-9a-zA-Z]{1,3}|(?<=[가-힣]\-)[0-9a-zA-Z]{1,3}| \d (?=\()|사이즈=[0-9a-zA-Z]{1,3}|(?<=\().(?=\))')
+        df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : str(sizeRegex.findall(x)))
 
-    # 사이즈 부분만 추출
-    sizeRegex = re.compile('사이즈=[0-9a-zA-Z]{0,3}|(?<=[가-힣]\/)[0-9a-zA-Z]|Free|(?<=[가-힣]\-)[0-9a-zA-Z]')
-    df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : str(sizeRegex.findall(str(x))))
-    df.loc[df['Size'] == "[]", 'Size'] = '구분불가'
+        # 사이즈 부분 2차 추출
+        sizeRegex2 = re.compile('\w{1}(?= ?사이즈)')
+        df['Size'] = df.apply(lambda x : str(sizeRegex2.findall(x['주문상품명(세트상품 포함)'])) if x['Size']=="[]" else x['Size'], axis=1)
+        df.loc[df['Size'] == "[]", 'Size'] = '구분불가'
+        df.to_csv('사이즈2차추출직후.csv', encoding='utf-8-sig', index=False)
 
-    # Prduct_Code와 Size를 동일 인덱스끼리 결합
-    df['Size'] = df['Size'].apply(lambda x: re.sub('[\[\]\(\)\']', '', x))
-    df['Size'] = df['Size'].apply(lambda x: x.split(','))
-    df['Code_Size'] = df.apply(lambda x: list(zip(x.Product_Code, x.Size)), axis=1)
+        # Prduct_Code와 Size를 동일 인덱스끼리 결합
+        df['Size'] = df['Size'].apply(lambda x: re.sub('[\[\]\(\)\']', '', x))
+        df['Size'] = df['Size'].apply(lambda x: x.split(','))
+        df['Code_Size'] = df.apply(lambda x: list(zip(x.Product_Code, x.Size)), axis=1)
 
-    # 1) 행분리
-    df = tidy_split(df, 'Code_Size', sep='),')
-    df['Code_Size'] = df['Code_Size'].apply(lambda x: re.sub('[\[\]\(\)\'\ ]', '',x))
+        # 세트인데 product_code나 size가 1개만 있는 경우 같은 데이터로 복사
+        df_set = df.loc[df['주문상품명(세트상품 포함)'].str.contains('세트')]
+        df_noset = df.loc[~df['주문상품명(세트상품 포함)'].str.contains('세트')]
+        df_set['Code_Size'] = df_set['Code_Size'].apply(lambda x: x+x if len(x)==1 else x)
+        df = pd.concat([df_set, df_noset])
 
-    # 2) 열분리
-    df['Product_Code'] = df['Code_Size'].apply(lambda x: x.split(',')[0])
-    df['Size'] = df['Code_Size'].apply(lambda x: x.split(',')[1])
-    df = df.drop(columns={'Code_Size'})
+        # 행분리
+        df = tidy_split(df, 'Code_Size', sep='),')
+        df['Code_Size'] = df['Code_Size'].apply(lambda x: re.sub('[\[\]\(\)\'\ ]', '',x))
 
-    # 3) Size에서 사이즈= 제거
-    df['Size'] = df['Size'].apply(lambda x:x.replace("사이즈=",""))
+        # 열분리
+        df['Product_Code'] = df['Code_Size'].apply(lambda x: x.split(',')[0])
+        df['Size'] = df['Code_Size'].apply(lambda x: x.split(',')[1])
+        df = df.drop(columns={'Code_Size'})
 
-    # 4) Free 인 경우 F로 치환
-    df['Size'] = df['Size'].apply(lambda x: 'F' if x=='Free' else x)
+        # Size에서 사이즈= 제거
+        df['Size'] = df['Size'].apply(lambda x:x.replace("사이즈=",""))
+
+        # Free 인 경우 F로 치환
+        df['Size'] = df['Size'].apply(lambda x: 'F' if x=='Free' or x=='FREE' else x)
+
+    except Exception as e: # product_code 추출 안된건이 없는경우
+        print(e)
 
     return df
 
@@ -318,55 +338,6 @@ def Option_Mapping(Brd, df, Option_df):
         Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
         df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
         df[unique_cols] = df[unique_cols].fillna('@')
-
-    # if Brd == 'an':
-        # unique_cols = list(Option_df.columns)
-        # Option_df = Option_df.drop_duplicates(['Style_Code'], keep='last')  # 매핑 중복기입 이슈 방지용
-        # df = pd.merge(left=df, right=Option_df, on=['Style_Code'], how='left')
-        # df[unique_cols] = df[unique_cols].fillna('@')
-        #
-        # # 대카테고리, 소카테고리 불필요 단어 제거
-        # df['Category1'] = df['Category1'].apply(lambda x: x.replace('의류','') if '의류' in x else x)
-        # df['Category3'] = df['Category3'].apply(lambda x: x.replace('티셔츠','') if '티셔츠' in x else x)
-
-    # else:
-    #     if Brd == 'fs':
-    #         # unique_cols = ['SKU_Code', 'Item', 'Shape', 'Lineup', 'Collection']
-    #         # Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
-    #         # Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션', 'SKU_Code'], keep='last')  # 매핑 중복기입 이슈 방지용, 핑거수트는 sku_code 다른경우 있음
-    #         # df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-    #         # df[unique_cols] = df[unique_cols].fillna('@')
-    #     else:
-    #         unique_cols = ['Item_Option']
-    #         Option_df = Option_df[['주문상품명', '상품옵션', 'Set'] + unique_cols]
-    #         Option_df = Option_df.drop_duplicates(['주문상품명', '상품옵션'], keep='last')  # 매핑 중복기입 이슈 방지용
-    #         df = pd.merge(left=df, right=Option_df, on=['주문상품명', '상품옵션'], how='left')
-    #         df[unique_cols] = df[unique_cols].fillna('@')
-
-    # 핑거수트 사은품 매핑 기간별 처리
-    # if Brd == 'fs':
-        # # 사은품 옵션매핑 테이블 불러오기
-        # Option_df2 = datalist('map', 'tb_map_primecost_option_fs2', "")
-        # Option_df2.columns = ['idx', 'set_', '주문상품명', '상품옵션', 'SKU_Code', 'Quantity_Bundle', 'Set', 'Start_date', 'End_date']
-        # Option_df2.loc[Option_df2.상품옵션 == '', '상품옵션'] = '@'
-        # Option_df2.loc[Option_df2.End_date == '', 'End_date'] = datetime.datetime.strptime('2262-04-11', '%Y-%m-%d')
-        # Option_df2 = Option_df2.drop(columns={'idx', 'set_', 'Quantity_Bundle'})
-        #
-        # df = pd.merge(left=df, right=Option_df2, on=['주문상품명', '상품옵션', 'SKU_Code', 'Set'], how='left')
-        # df['Start_date'] = df['Start_date'].astype('str')
-        #
-        # # 기간판단 불필요한 행들
-        # df_nongift = df.loc[df.Start_date == 'nan']
-        #
-        # # 기간판단 필요한 행들
-        # df_gift = df.loc[df.Start_date != 'nan']
-        # df_gift['Start_date'] = pd.to_datetime(df_gift['Start_date'], format='%Y-%m-%d')
-        # df_gift['End_date'] = pd.to_datetime(df_gift['End_date'], format='%Y-%m-%d')
-        # df_gift = df_gift.loc[(df_gift.Date_ >= df_gift.Start_date) & (df_gift.Date_ <= df_gift.End_date)]
-        #
-        # # 결합
-        # df = pd.concat([df_nongift, df_gift])
-        # df = df.drop(columns={'Start_date', 'End_date'})
 
     return df
 
@@ -976,25 +947,25 @@ def add_reflet_info(Brd, final_df):
     '''
 
     if Brd == 'fs':
-        cur_item_df = final_df[['Date_', 'Orderid', 'Sequence', 'Item', 'Quantity_SKU']]
-        cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Sequence', 'Item']).sum('Quantity_SKU').reset_index()
+        cur_item_df = final_df[['Date_', 'Orderid', 'Item', 'Quantity_SKU']]
+        cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Item']).sum('Quantity_SKU').reset_index()
         cur_item_df = cur_item_df.astype({'Quantity_SKU':str})
         cur_item_df['Quantity_SKU'] = cur_item_df['Quantity_SKU'].str.replace('0', '', regex=False)
         cur_item_df['Item'] = cur_item_df['Item'] + "^" + cur_item_df['Quantity_SKU']
         cur_item_df = cur_item_df.drop(columns=['Quantity_SKU'])
 
-        cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        cur_item_df = cur_item_df.groupby(['Date_', 'Orderid']).agg(lambda x: list(x)).reset_index()
         cur_item_df['Item'] = cur_item_df['Item'].apply(lambda x: str(sorted(x)))
-        cur_item_df = cur_item_df.sort_values(by=['Date_', 'Orderid', 'Sequence'], ascending=(True, True, True))
+        cur_item_df = cur_item_df.sort_values(by=['Date_', 'Orderid'], ascending=(True, True))
         cur_item_df = cur_item_df.rename(columns={'Item': 'Cur_Item'})
-        df = pd.merge(left=final_df, right=cur_item_df, on=['Date_', 'Orderid', 'Sequence'], how='left')
+        df = pd.merge(left=final_df, right=cur_item_df, on=['Date_', 'Orderid'], how='left')
 
-        cur_use_df = df[['Date_', 'Orderid', 'Sequence', 'Unused_Data']]
-        cur_use_df = cur_use_df.groupby(['Date_', 'Orderid', 'Sequence']).agg(lambda x: list(x)).reset_index()
+        cur_use_df = df[['Date_', 'Orderid', 'Unused_Data']]
+        cur_use_df = cur_use_df.groupby(['Date_', 'Orderid']).agg(lambda x: list(x)).reset_index()
         cur_use_df['Unused_Data'] = cur_use_df['Unused_Data'].apply(lambda x: str(sorted(x)))
-        cur_use_df = cur_use_df.sort_values(by=['Date_', 'Orderid', 'Sequence'], ascending=(True, True, True))
+        cur_use_df = cur_use_df.sort_values(by=['Date_', 'Orderid'], ascending=(True, True))
         cur_use_df = cur_use_df.rename(columns={'Unused_Data': 'Cur_Unused_Data'})
-        df = pd.merge(left=df, right=cur_use_df, on=['Date_', 'Orderid', 'Sequence'], how='left').reset_index()
+        df = pd.merge(left=df, right=cur_use_df, on=['Date_', 'Orderid'], how='left').reset_index()
 
         df3 = df.drop_duplicates(subset=['Orderid', 'Cur_Item'], keep='last')
 
@@ -1075,35 +1046,3 @@ def tidy_split(df, column, sep='|', keep=False):
 
     return new_df
 
-
-def explode(df, lst_cols, fill_value='', preserve_index=False):
-    """get_size 함수에서 쓰는 행분리 로직. 여러 열에 대해 적용 가능"""
-    # make sure `lst_cols` is list-alike
-    if (lst_cols is not None
-        and len(lst_cols) > 0
-        and not isinstance(lst_cols, (list, tuple, np.ndarray, pd.Series))):
-        lst_cols = [lst_cols]
-    # all columns except `lst_cols`
-    idx_cols = df.columns.difference(lst_cols)
-    # calculate lengths of lists
-    lens = df[lst_cols[0]].str.len()
-    # preserve original index values
-    idx = np.repeat(df.index.values, lens)
-    # create "exploded" DF
-    res = (pd.DataFrame({
-                col:np.repeat(df[col].values, lens)
-                for col in idx_cols},
-                index=idx)
-             .assign(**{col:np.concatenate(df.loc[lens>0, col].values)
-                            for col in lst_cols}))
-    # append those rows that have empty lists
-    if (lens == 0).any():
-        # at least one list in cells is empty
-        res = (res.append(df.loc[lens==0, idx_cols], sort=False)
-                  .fillna(fill_value))
-    # revert the original index order
-    res = res.sort_index()
-    # reset index if requested
-    if not preserve_index:
-        res = res.reset_index(drop=True)
-    return res
