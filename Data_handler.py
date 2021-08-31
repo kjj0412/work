@@ -946,7 +946,7 @@ def add_reflet_info(Brd, final_df):
         cur_item_df = final_df[['Date_', 'Orderid', 'Item', 'Quantity_SKU']]
         cur_item_df = cur_item_df.groupby(['Date_', 'Orderid', 'Item']).sum('Quantity_SKU').reset_index()
         cur_item_df = cur_item_df.astype({'Quantity_SKU':str})
-        cur_item_df['Quantity_SKU'] = cur_item_df['Quantity_SKU'].str.replace('0', '', regex=False)
+        cur_item_df['Quantity_SKU'] = cur_item_df['Quantity_SKU'].str.replace('\b0\b', '', regex=True)
         cur_item_df['Item'] = cur_item_df['Item'] + "^" + cur_item_df['Quantity_SKU']
         cur_item_df = cur_item_df.drop(columns=['Quantity_SKU'])
 
