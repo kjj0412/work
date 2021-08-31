@@ -26,10 +26,6 @@ def data_input(Brd, file_dir):
             df = pd.read_csv(i, encoding='euc-kr')
         all_df = all_df.append(df)
 
-    ## 중복된 케이스 따로 추출
-    duplicated = all_df[all_df.duplicated(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep=False)]
-    duplicated.to_csv(Brd + '_중복케이스.csv', encoding='utf-8-sig', index=False)
-
     # 배송상태만 다른 데이터 처리용 (배송완료&반품완료 등)
     all_df = all_df.drop_duplicates(['주문번호', '주문상품명', '상품코드', '상품옵션', '상품품목코드'], keep='last')
 

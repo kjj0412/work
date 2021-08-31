@@ -209,14 +209,14 @@ def mainData(df, Option_df, Brand, Brd, start_date, report_date, update_all):
     simple_df = Data_handler.simple_table(df)
 
     del_query = 'Where Brand="{}" and Date_ between "{}" and "{}"'.format(Brand, start_date, report_date)
-    # del_data(schema, 'tb_salesrp_simple', del_query)
-    # insert_data(simple_df, schema, 'tb_salesrp_simple')
+    del_data(schema, 'tb_salesrp_simple', del_query)
+    insert_data(simple_df, schema, 'tb_salesrp_simple')
 
     SKU_df = Data_handler.SKU_Mapping(Brd, df, Option_df) # SKU, Quantity_Bundle, Quantity_SKU
 
     NoMapping = Data_handler.MappingCheck(SKU_df, Brd)
-    # del_data(schema, 'tb_salesrp_mapnull_' + Brd, '')
-    # insert_data(NoMapping, schema, 'tb_salesrp_mapnull_' + Brd)
+    del_data(schema, 'tb_salesrp_mapnull_' + Brd, '')
+    insert_data(NoMapping, schema, 'tb_salesrp_mapnull_' + Brd)
 
     SKU_df = Data_handler.Pre_SKU(DB_past_df, SKU_df) # Pre_SKU
 
@@ -377,14 +377,17 @@ def main(Brand, start, end, update_all):
     final_df = final_df.sort_values(by=['Orderid', 'Sequence'], ascending=(True, True))
 
     final_df = final_df.rename(columns={'주문상품명':'Product_Name'})
+    if Brd == 'an':
+        final_df = final_df.rename(columns={'판매가': 'List_Price', '옵션+판매가':'Option_and_Price',
+                                            '상품별 추가할인금액':'Additional_Discount', '소비자가격':'Retail_Price'})
     final_df = final_df[final_field(Brd)]
 
     final_df.to_csv(Brand + '_final_20일.csv', encoding='utf-8-sig', index=False)
     print(final_df.shape)
 
     del_query = 'Where Date_ between "{}" and "{}"'.format(start_date, report_date)
-    # del_data(schema, 'tb_salesrp_sku_' + Brd + '_current', del_query)
-    # insert_data(final_df, schema, 'tb_salesrp_sku_' + Brd + '_current')
+    del_data(schema, 'tb_salesrp_sku_' + Brd, del_query)
+    insert_data(final_df, schema, 'tb_salesrp_sku_' + Brd)
 
     # CrossSale RD 생성
     if Brand == '핑거수트':
@@ -417,13 +420,13 @@ def main(Brand, start, end, update_all):
     elif update_all == True:
         Cross_df = Data_handler.CrossItem_List(main_df, Brand, value)
 
-    # del_data(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
-    # insert_data(Cross_df, schema, 'tb_salesrp_cross_temp')
-    #
-    # Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
+    del_data(schema, 'tb_salesrp_cross_temp', 'where Brand = "' + Brand + '"')
+    insert_data(Cross_df, schema, 'tb_salesrp_cross_temp')
+
+    Cross_df = Data_handler.CrossItem_Pivot(Cross_df, Brand, 'Product')
     # Cross_df.to_csv(Brand + '14일_크로스셀링.csv', encoding='euc-kr', index=False)
-    # del_data(schema, 'tb_salesrp_cross_' + Brd, "")
-    # insert_data(Cross_df, schema, 'tb_salesrp_cross_' + Brd)
+    del_data(schema, 'tb_salesrp_cross_' + Brd, "")
+    insert_data(Cross_df, schema, 'tb_salesrp_cross_' + Brd)
 
 
 if __name__ == "__main__":

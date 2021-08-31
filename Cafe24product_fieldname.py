@@ -89,7 +89,11 @@ def field_sorting(Brd):
             'Size', # 추가됨
             'Category1',   # 추가됨
             'Category2',   # 추가됨
-            'Category3'    # 추가됨
+            'Category3',    # 추가됨
+            '판매가', # 추가됨
+            '옵션+판매가', # 추가됨
+            '상품별 추가할인금액', # 추가됨
+            '소비자가격' # 추가됨
         ]
     else:
         ColumnName = [
@@ -222,7 +226,11 @@ def final_field(Brd):
             'Quantity_Rows',
             'Quantity_Divide',
             'Sales_Total',
-            'Sales_Divide'
+            'Sales_Divide',
+            'List_Price',  # 판매가. 추가됨
+            'Option_and_Price',  # 옵션+판매가. 추가됨
+            'Additional_Discount',  # 상품별추가할인금액. 추가됨
+            'Retail_Price'  # 소비자가격. 추가됨
         ]
     else:
         ColumnName = [
