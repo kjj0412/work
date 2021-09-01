@@ -177,7 +177,7 @@ def get_Codes(Brd, df):
         df.loc[df.Product_Code == 'testAJF8L-22BLK', 'Product_Code'] = 'AJF8L-22BLK'
         df.loc[df.Product_Code == 'testAJF8L-22GRY', 'Product_Code'] = 'AJF8L-22GRY'
 
-        # 1. Product_Code 가 구분불가인 경우
+        # -------------- 1. Product_Code 가 구분불가인 경우 --------------
         df_nocode = df.loc[df.Product_Code=='구분불가']
         df_nocode = get_Size(df_nocode)
 
@@ -185,30 +185,34 @@ def get_Codes(Brd, df):
         Option_df = datalist('andar', 'prdtinfo', "")
         Option_df.columns = ['idx', 'Style_Code', '주문상품명', 'Tag_Price', 'Price', 'Grade', 'Tier', 'Category1', 'Category2', 'Category3', 'Prime_Cost']
         Option_df = Option_df[['주문상품명', 'Style_Code']]
-        Option_df = Option_df.drop_duplicates()
-        df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'])
+        Option_df = Option_df.drop_duplicates(['주문상품명'])
+        df_nocode = pd.merge(left=df_nocode, right=Option_df, on=['주문상품명'], how='left')
+        df_nocode.loc[pd.isnull(df_nocode.Style_Code), 'Style_Code'] = '구분불가' # 최종 매핑되지 않은경우 구분불가
 
         ## 2) Color_Code : 구분불가
         df_nocode['Color_Code'] = '구분불가'
 
-        # 2. Product_Code가 있는 경우
+        # ----------------- 2. Product_Code가 있는 경우 -----------------
         df_yescode = df.loc[df.Product_Code != '구분불가']
-        df_yescode = get_Size(df_yescode)
 
         ## 1) 예외처리
-        df_yescode = df_yescode.drop(df_yescode[df_yescode.Product_Code == 'S-M'].index)  # product 코드 아닌데 추출된 경우는 제외
-        df_yescode.loc[df_yescode.Product_Code == 'RVP-00406', 'Product_Code'] = 'RVP-0040' # Product_Code 잘못나온 경우 수정
-        errcode_list = ','.join(['AJFBT-11', 'EJFMB-03', 'LJSNS-01', 'RVP-0040'])  # Product_Code와 Style_Code가 같은 경우 처리
+        df_yescode['Product_Code'] = df_yescode.apply(lambda x : x.Product_Code[x.Product_Code.find(' ')+1:] if
+        ('세트' not in x['주문상품명(세트상품 포함)'] and '사은품' not in x['주문상품명(세트상품 포함)'] and len(x.Product_Code)>1)
+        else x.Product_Code, axis=1) # 단품인데 Product_Code 2개인 경우 마지막 1개 선택
 
-        ## 2) Style code와 color code 분리
+        df_yescode = df_yescode.drop(df_yescode[df_yescode.Product_Code == 'S-M'].index) # product 코드 아닌데 추출된 경우는 제외
+        df_yescode = get_Size(df_yescode)
+        errcode_dict = {'LDP-0101':'BLK', 'LDP-0303':'메탈그레이', 'LDP-0404':'버건디 와인', 'LDP-0505':'네이비', 'RVP-00406':'BLK'}
+
+        ## 3) Style code와 color code 분리
         df_yescode['Style_Code'] = df_yescode['Product_Code'].apply(
-            lambda x: x if x == '구분불가' or x in errcode_list else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
+            lambda x: x if x == '구분불가' or x in errcode_dict else x[:-3] if len(x.split('-')[0]) > 4 else x[:-2] if len(
                 x.split('-')[0]) == 4 else x)
         df_yescode['Color_Code'] = df_yescode['Product_Code'].apply(
-            lambda x: x if x == '구분불가' or x in errcode_list else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
+            lambda x: x if x == '구분불가' else errcode_dict[x] if x in errcode_dict else x[-3:] if len(x.split('-')[0]) > 4 else x[-2:] if len(
                 x.split('-')[0]) == 4 else x)
 
-        # 3. 결합
+        # -------------------------- 3. 결합 ---------------------------
         df = pd.concat([df_yescode, df_nocode])
         df.loc[df.Size=='구분불가'].to_csv('전체기간구분불가.csv', encoding='utf-8-sig', index=False)
 
@@ -235,22 +239,26 @@ def get_Size(df):
 
         # 사이즈 부분 1차 추출
         sizeRegex = re.compile('(?<=[가-힣]\/)[0-9a-zA-Z]{1,3}|(?<=[가-힣]\-)[0-9a-zA-Z]{1,3}| \d (?=\()|사이즈=[0-9a-zA-Z]{1,3}|(?<=\().(?=\))')
-        df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : str(sizeRegex.findall(x)))
+        df['Size'] = df['주문상품명(세트상품 포함)'].apply(lambda x : sizeRegex.findall(x))
 
         # 사이즈 부분 2차 추출
         sizeRegex2 = re.compile('\w{1}(?= ?사이즈)')
-        df['Size'] = df.apply(lambda x : str(sizeRegex2.findall(x['주문상품명(세트상품 포함)'])) if x['Size']=="[]" else x['Size'], axis=1)
-        df.loc[df['Size'] == "[]", 'Size'] = '구분불가'
-        df.to_csv('사이즈2차추출직후.csv', encoding='utf-8-sig', index=False)
+        df['Size'] = df.apply(lambda x : sizeRegex2.findall(x['주문상품명(세트상품 포함)']) if len(x['Size'])==0 else x['Size'], axis=1)
+
+        # 사이즈 추출 안된 경우 처리
+        '''
+        product_code와 size의 길이가 다른경우 : Product_code 길이에 맞춤
+        '''
+        df['Size'] = df.apply(lambda x : x['Size']+(['구분불가']*(len(x.Product_Code)-len(x.Size)))
+        if len(x.Product_Code)>len(x.Size) else x['Size'], axis=1)
 
         # Prduct_Code와 Size를 동일 인덱스끼리 결합
-        df['Size'] = df['Size'].apply(lambda x: re.sub('[\[\]\(\)\']', '', x))
-        df['Size'] = df['Size'].apply(lambda x: x.split(','))
         df['Code_Size'] = df.apply(lambda x: list(zip(x.Product_Code, x.Size)), axis=1)
 
-        # 세트인데 product_code나 size가 1개만 있는 경우 같은 데이터로 복사
+        # 세트인데 product_code와 size가 모두 1개만 있는 경우 : 같은 데이터로 복사해 2행으로 분리되도록 함
         df_set = df.loc[df['주문상품명(세트상품 포함)'].str.contains('세트')]
         df_noset = df.loc[~df['주문상품명(세트상품 포함)'].str.contains('세트')]
+        df_set.to_csv('세트인데 1행뿐.csv', encoding='utf-8-sig', index=False)
         df_set['Code_Size'] = df_set['Code_Size'].apply(lambda x: x+x if len(x)==1 else x)
         df = pd.concat([df_set, df_noset])
 
@@ -365,13 +373,18 @@ def get_Cur_Shape_Lineup(Brd, SKU_df):
     '''
     Shape_Lineup : 행별 Shape&Lineup 조합. 핑거수트 Interval_Days_SKU 계산용 변수
     Cur_Shape_Lineup : 해당 구매건의 Shape&Lineup 조합. 핑거수트 크로스세일 계산용 변수.
-    ㄴ Item이 케어 -> '케어', Item이 '-' -> '기타'
+    ㄴ Cur_Shape_Lineup에서 Item이 케어 or Set이 사은품인 케이스는 제외
+    ㄴ Item이 '-' -> '기타'
     '''
 
     if Brd == 'fs':
-        Cur_SL_df = SKU_df[['Date_', 'Phone_Number', 'Item', 'Shape', 'Lineup', 'Sequence']]
-        Cur_SL_df['Cur_Shape_Lineup'] = Cur_SL_df.apply(lambda x: x['Shape'] + x['Lineup'] if (x['Item']!='케어' and x['Item']!='-')
-                                                        else '케어' if x['Item']=='케어' else '기타', axis=1)
+        Cur_SL_df = SKU_df.copy()
+        Cur_SL_df = Cur_SL_df.loc[(Cur_SL_df.Item != '케어') & (Cur_SL_df.Set != '사은품')]
+        Cur_SL_df = Cur_SL_df[['Date_', 'Phone_Number', 'Item', 'Shape', 'Lineup', 'Sequence']]
+        Cur_SL_df['Lineup'] = Cur_SL_df['Lineup'].map({'풀컬러':'풀컬러', '디자인':'디자인', '프리미엄 디자인': '디자인',
+                                                       '파츠':'파츠', '프리미엄 파츠': '파츠', '엑스트라 프리미엄 파츠': '파츠', '-':'-'})
+        Cur_SL_df['Cur_Shape_Lineup'] = Cur_SL_df.apply(lambda x: x['Shape'] + x['Lineup'] if x['Item']!='-'
+                                                        else '기타', axis=1)
         Cur_SL_df = Cur_SL_df.drop(columns=['Shape', 'Lineup', 'Item'])
 
         Cur_SL_df = Cur_SL_df.groupby(['Date_', 'Phone_Number', 'Sequence']).agg(lambda x: list(x)).reset_index()
